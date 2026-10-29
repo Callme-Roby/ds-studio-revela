@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ProjectBrief from './ProjectBrief.js';
 import Assistant from './Assistant.js';
 import Onboarding from './Onboarding.js';
@@ -122,15 +122,26 @@ export default function App() {
   const [onboarding, setOnboarding] = useState(false);
   const [spec, setSpec] = useState<SpecStatus | null>();
   const [specBusy, setSpecBusy] = useState(false);
+  const specKey = useRef('');
+  // Dernier échec de l'export : affiché, et plus de nouvel essai automatique
+  // pour ces révisions (sinon l'atelier réessaierait sans fin).
+  const [specError, setSpecError] = useState<{
+    key: string;
+    message: string;
+  }>();
   // Export Figma (composants et écrans) régénéré en arrière-plan quand il ne
   // correspond plus aux révisions validées : le plugin lit toujours l'état courant.
   const refreshSpec = (force = false) => {
     setSpecBusy(true);
     return (force ? prepareFigmaExport() : specStatus())
-      .then(setSpec)
+      .then((s) => {
+        setSpec(s);
+        setSpecError(undefined);
+      })
       .catch((e) => {
         setSpec(null);
-        if (force) setError(e.message);
+        if (force)
+          setSpecError({ key: specKey.current, message: (e as Error).message });
       })
       .finally(() => setSpecBusy(false));
   };
@@ -295,10 +306,12 @@ export default function App() {
     (!spec ||
       spec.revision !== state.revision ||
       spec.codeRevision !== latestCode);
+  specKey.current = `${state?.revision}/${latestCode}`;
   useEffect(() => {
-    if (specStale && !specBusy) void refreshSpec(true);
+    if (specStale && !specBusy && specError?.key !== specKey.current)
+      void refreshSpec(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specStale, specBusy]);
+  }, [specStale, specBusy, specError]);
 
   if (!state)
     return (
@@ -532,6 +545,19 @@ export default function App() {
               onImport={(f) => void importTokens(f)}
               spec={spec}
               specBusy={specBusy}
+              specError={specError?.message}
+              agent={settings?.agent}
+              onAgent={(a) =>
+                void perform(async () =>
+                  setSettings(await request('settings', { agent: a })),
+                )
+              }
+              onCheckAgents={() => {
+                setAgents([]);
+                request<Bootstrap['agents']>('agents')
+                  .then(setAgents)
+                  .catch(() => setAgents([]));
+              }}
               onPrepareSpec={() => void refreshSpec(true)}
             />
           )}

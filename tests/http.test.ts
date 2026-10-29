@@ -562,3 +562,17 @@ test('composants et Git d’un projet externe : dossiers vérifiés, chemins fer
   );
   assert.equal((await post('projects/app/git/push', {}, { Origin: 'null' })).status, 403);
 });
+
+test('plugin Figma téléchargeable : archive avec manifest, code et interface', async (t) => {
+  const { origin } = await fixture(t);
+  const r = await fetch(origin + '/api/figma/plugin.zip');
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('content-type'), 'application/zip');
+  assert.match(r.headers.get('content-disposition') ?? '', /ds-studio-figma-plugin\.zip/);
+  const archive = Buffer.from(await r.arrayBuffer());
+  const names = archive.toString('latin1');
+  for (const name of ['manifest.json', 'code.js', 'ui.html', 'LISEZMOI.txt'])
+    assert.ok(names.includes(`ds-studio-figma-plugin/${name}`), name);
+  const manifest = await readFile(path.join(root, 'figma-plugin', 'manifest.json'));
+  assert.ok(archive.includes(manifest));
+});

@@ -27,6 +27,7 @@ import { ProjectRegistry } from './registry.js';
 import { ExternalTokens } from './external-tokens.js';
 import { SettingsStore, settingsSchema } from './settings.js';
 import { detectProject } from './detect.js';
+import { zip } from './zip.js';
 import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
 import { externalPath, externalProposeSchema } from './components.js';
 import {
@@ -239,6 +240,28 @@ export async function createStudioServer(options: {
             return send(200, await projects.list());
           if (url.pathname === '/api/settings')
             return send(200, await settings.read());
+          if (url.pathname === '/api/figma/plugin.zip') {
+            // Plugin de développement tel que livré dans figma-plugin/.
+            const dir = path.join(root, 'figma-plugin');
+            const files = await Promise.all(
+              ['manifest.json', 'code.js', 'ui.html'].map(async (name) => ({
+                name: `ds-studio-figma-plugin/${name}`,
+                data: await fs.readFile(path.join(dir, name)),
+              })),
+            );
+            files.push({
+              name: 'ds-studio-figma-plugin/LISEZMOI.txt',
+              data: Buffer.from(
+                'Plugin Figma DS-Studio\r\n\r\n1. Figma desktop : Plugins > Development > Import plugin from manifest...\r\n2. Choisissez manifest.json dans ce dossier.\r\n3. DS-Studio ouvert (npm start), lancez le plugin : Lire DS-Studio, puis Appliquer.\r\n',
+              ),
+            });
+            res.writeHead(200, {
+              'Content-Type': 'application/zip',
+              'Content-Disposition':
+                'attachment; filename="ds-studio-figma-plugin.zip"',
+            });
+            return res.end(zip(files));
+          }
           const detect = url.pathname.match(
             /^\/api\/projects\/([a-z0-9-]{1,40})\/detect$/,
           );

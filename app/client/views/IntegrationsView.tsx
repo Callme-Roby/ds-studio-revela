@@ -2,6 +2,26 @@ import type { CodeStatus } from '../api.js';
 import type { SpecStatus } from '../figmaExport.js';
 
 type Agent = { id: string; available: boolean; detail: string };
+export type AgentChoice = 'claude' | 'codex' | 'none';
+
+// Comment brancher chaque IA : CLI officiel, connecté par l'étudiant lui-même.
+const agentInfo: Record<
+  Exclude<AgentChoice, 'none'>,
+  { label: string; hint: string; install: string; login: string }
+> = {
+  claude: {
+    label: 'Claude Code',
+    hint: 'Anthropic · Sonnet 5.5, effort moyen · variables et code des composants',
+    install: 'npm install -g @anthropic-ai/claude-code',
+    login: 'claude   puis   /login',
+  },
+  codex: {
+    label: 'Codex',
+    hint: 'OpenAI · propositions de variables',
+    install: 'npm install -g @openai/codex',
+    login: 'codex login',
+  },
+};
 
 // Où va le DS une fois validé : code, fichiers JSON, Figma, IA.
 export default function IntegrationsView({
@@ -13,7 +33,11 @@ export default function IntegrationsView({
   onImport,
   spec,
   specBusy,
+  specError,
   onPrepareSpec,
+  agent,
+  onAgent,
+  onCheckAgents,
 }: {
   code?: CodeStatus;
   agents: Agent[];
@@ -23,10 +47,12 @@ export default function IntegrationsView({
   onImport: (file: File) => void;
   spec?: SpecStatus | null;
   specBusy: boolean;
+  specError?: string;
   onPrepareSpec: () => void;
+  agent?: AgentChoice;
+  onAgent: (agent: AgentChoice) => void;
+  onCheckAgents: () => void;
 }) {
-  const claude = agents.find((a) => a.id === 'claude');
-  const codex = agents.find((a) => a.id === 'codex');
   return (
     <div className="cards">
       <article className="card">
@@ -75,57 +101,121 @@ export default function IntegrationsView({
       <article className="card">
         <h2>Figma · plugin</h2>
         <p className="muted">
-          Dans Figma desktop : Plugins → Development → Import plugin from
-          manifest… → <code>figma-plugin/manifest.json</code>. Puis « Lire
-          DS-Studio » et « Appliquer » : la collection « Revela · DS-Studio »
-          reçoit les variables validées ; les pages « Revela · Composants » et «
-          Revela · Écrans » reçoivent les composants (variantes) et les écrans,
-          liés à ces variables.
+          Le plugin pousse les variables validées, puis les composants
+          (variantes) et les écrans, liés à ces variables, dans votre fichier
+          Figma.
         </p>
-        <p className="muted small">
-          Composants et écrans : export{' '}
-          {specBusy
-            ? 'en préparation…'
-            : spec
-              ? `prêt · ${spec.components} composants, ${spec.variants} variantes, ${spec.screens} écrans · révisions r${spec.revision} / c${spec.codeRevision}`
-              : 'pas encore préparé'}
-          . Régénéré automatiquement après chaque validation.
-        </p>
+        <div className="row">
+          <a
+            className="button studio-primary"
+            href="/api/figma/plugin.zip"
+            download="ds-studio-figma-plugin.zip"
+          >
+            Télécharger le plugin
+          </a>
+        </div>
+        <ol className="steps small">
+          <li>Décompressez le fichier téléchargé.</li>
+          <li>
+            Figma desktop → Plugins → Development → Import plugin from manifest…
+            → <code>manifest.json</code> du dossier décompressé.
+          </li>
+          <li>
+            DS-Studio ouvert, lancez le plugin : « Lire DS-Studio » puis «
+            Appliquer ».
+          </li>
+        </ol>
+        <h3 className="list-title">Composants et écrans</h3>
+        {specError && !specBusy ? (
+          <p className="error small" role="alert">
+            Export impossible : {specError}
+          </p>
+        ) : (
+          <p className="muted small">
+            {specBusy
+              ? 'Export en préparation…'
+              : spec
+                ? `Export prêt · ${spec.components} composants, ${spec.variants} variantes, ${spec.screens} écrans · révisions r${spec.revision} / c${spec.codeRevision}.`
+                : 'Export pas encore préparé.'}{' '}
+            Régénéré automatiquement après chaque validation.
+          </p>
+        )}
         <div className="row">
           <button onClick={onPrepareSpec} disabled={specBusy}>
             Préparer l’export Figma
           </button>
         </div>
         <p className="muted small">
-          Lecture seule par le plugin sur{' '}
-          <code>http://localhost:4310/api/figma/tokens</code>. Guide :
-          docs/FIGMA_PLUGIN.md.
+          Le plugin lit DS-Studio en lecture seule sur{' '}
+          <code>http://localhost:4310</code>. Guide : docs/FIGMA_PLUGIN.md.
         </p>
       </article>
-      <article className="card">
-        <h2>Assistants IA</h2>
-        <p>
-          <strong>Claude Code</strong> ·{' '}
-          {claude
-            ? claude.available
-              ? 'disponible'
-              : 'indisponible'
-            : 'vérification…'}
-        </p>
-        <p className="muted small">{claude?.detail}</p>
-        <p>
-          <strong>Codex</strong> ·{' '}
-          {codex
-            ? codex.available
-              ? 'disponible'
-              : 'indisponible'
-            : 'vérification…'}
-        </p>
-        <p className="muted small">{codex?.detail}</p>
+      <article className="card" aria-labelledby="ia-title">
+        <h2 id="ia-title">Assistant IA</h2>
         <p className="muted small">
-          L’assistant flottant (en bas à droite) propose des variables ou du
-          code ; tout passe par un diff et votre validation.
+          L’IA de l’assistant flottant. Elle propose, vous validez sur diff.
+          DS-Studio passe par son outil officiel en ligne de commande, connecté
+          avec votre compte : aucun identifiant n’est lu ni stocké ici.
         </p>
+        <div
+          className="agent-list"
+          role="radiogroup"
+          aria-label="IA de l’assistant"
+        >
+          {(['claude', 'codex'] as const).map((id) => {
+            const a = agents.find((x) => x.id === id);
+            const info = agentInfo[id];
+            return (
+              <div
+                key={id}
+                className={`agent-row${agent === id ? ' selected' : ''}`}
+              >
+                <label>
+                  <input
+                    type="radio"
+                    name="ia"
+                    checked={agent === id}
+                    onChange={() => onAgent(id)}
+                  />
+                  <strong>{info.label}</strong>
+                  <span
+                    className={a?.available ? 'ok-text small' : 'muted small'}
+                  >
+                    {!a
+                      ? 'vérification…'
+                      : a.available
+                        ? 'connecté ✓'
+                        : 'non connecté'}
+                  </span>
+                </label>
+                <p className="muted small">
+                  {a?.available ? a.detail : info.hint}
+                </p>
+                {a && !a.available && (
+                  <pre className="code-block">
+                    <span>{info.install}</span>
+                    <span>{info.login}</span>
+                  </pre>
+                )}
+              </div>
+            );
+          })}
+          <div className={`agent-row${agent === 'none' ? ' selected' : ''}`}>
+            <label>
+              <input
+                type="radio"
+                name="ia"
+                checked={agent === 'none'}
+                onChange={() => onAgent('none')}
+              />
+              <strong>Sans IA</strong>
+            </label>
+            <p className="muted small">Tout fonctionne à la main.</p>
+          </div>
+        </div>
+        <div className="row">
+          <button onClick={onCheckAgents}>Vérifier les connexions</button>
+        </div>
       </article>
     </div>
   );

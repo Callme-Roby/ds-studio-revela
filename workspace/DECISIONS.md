@@ -500,3 +500,23 @@ menu), vérifié à l’écran (Claude Code détecté connecté sur ce poste).
 
 **Limites.** L’analyse du dépôt par Claude (paires de contraste, conventions)
 reste à faire (D5) ; pas de saisie de clé d’API par choix de sécurité.
+
+## 2026-10-29 — Intégrations : plugin téléchargeable, IA gérée, export Figma bloqué
+
+**Constat de l’étudiant.** « Composants et écrans : export en préparation… »
+sans fin. Cause : son serveur tournait depuis le matin avec l’ancien code, alors
+que l’interface (recompilée) appelait les nouvelles routes de l’export ; et
+l’interface relançait l’export à chaque échec, sans limite. Correctif : un
+échec est affiché dans la carte et n’est plus relancé automatiquement pour les
+mêmes révisions ; le bouton reste disponible. Redémarrer le serveur suffit.
+
+**Ajouts demandés.** Plugin Figma téléchargeable (archive ZIP générée à la
+volée, sans dépendance : manifest, code, interface, mode d’emploi), relue par
+Windows et par un test ; carte « Assistant IA » : choix Claude Code / Codex /
+sans IA (même réglage que l’assistant de démarrage), état de connexion,
+commandes d’installation et de connexion, vérification à la demande.
+
+**Preuves.** Tests ZIP (CRC de référence, relecture), test HTTP du
+téléchargement, archive décompressée par Windows (code.js identique), choix de
+l’IA enregistré, export prêt sur un serveur à jour. 98 tests unitaires et API,
+19 navigateur.

@@ -13,9 +13,11 @@ plugin dans Figma, qui lisez le plan et qui cliquez **Appliquer**.
 
 ## Installer (une fois)
 
+0. Dans DS-Studio : **Intégrations → Télécharger le plugin**, puis
+   décompressez l’archive (ou utilisez le dossier `figma-plugin/` du dépôt).
 1. Ouvrez un fichier Figma.
 2. Menu **Plugins → Development → Import plugin from manifest…**
-3. Choisissez `figma-plugin/manifest.json` dans ce dépôt.
+3. Choisissez `manifest.json` (dossier décompressé ou `figma-plugin/` du dépôt).
 
 Le plugin apparaît dans **Plugins → Development → Revela · DS-Studio**.
 `figma-plugin/code.js` est généré par `npm run figma:build` (déjà fait dans le dépôt).
@@ -91,6 +93,7 @@ généré est remplacée à la reconstruction ; travaillez avec des instances.
 | `Invalid value for devAllowedDomains`         | Ancien manifest avec une IP : réimportez `figma-plugin/manifest.json`.    |
 | « DS-Studio injoignable sur localhost:4310 »  | DS-Studio n’est pas lancé : `npm start`, puis **Lire DS-Studio**.         |
 | « Dossier déjà verrouillé » au `npm start`    | Verrou d’un serveur arrêté brutalement : voir [LAUNCHER](LAUNCHER.md).    |
+| « Export en préparation » sans fin, ou erreur d’export | Serveur DS-Studio lancé avant une mise à jour : Ctrl+C puis relancez-le. |
 | Plan vide alors que DS-Studio a changé        | La validation n’a pas abouti : vérifiez la révision dans l’atelier.       |
 
 ## Limites

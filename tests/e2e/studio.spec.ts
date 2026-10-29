@@ -514,7 +514,7 @@ test('export Figma : capture des composants et écrans, couleurs rattachées aux
 }) => {
   await page.goto('/#/integrations');
   await page.getByRole('button', { name: 'Préparer l’export Figma' }).click();
-  await expect(page.getByText(/export prêt · 11 composants/)).toBeVisible({
+  await expect(page.getByText(/Export prêt · 11 composants/)).toBeVisible({
     timeout: 20000,
   });
   const spec = await (await page.request.get('/api/figma/spec')).json();

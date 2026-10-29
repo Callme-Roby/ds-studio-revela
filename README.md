@@ -25,7 +25,7 @@ DS-Studio (http://127.0.0.1:4310)
 | **Composants**          | Catalogue des composants ; pour chacun : **Aperçu** (états, variables utilisées) ou **Code** (TSX et CSS éditables, proposés sur diff) |
 | **Historique**          | Révisions de variables (r) et de code (c), chacune annulable                           |
 | **Projet**              | Brief PFE privé                                                                         |
-| **Intégrations**        | Cible code, import/export JSON, plugin Figma, statut des assistants                    |
+| **Intégrations**        | Cible code, import/export JSON, plugin Figma (téléchargement, export des composants), choix et connexion de l’IA |
 | **Projets** (haut de la barre) | Revela (intégré) et vos autres projets : dossier local ou dépôt GitHub, fichier Figma, case « plugin Figma » |
 | **Assistant IA** (flottant, repliable) | Variables : propositions de tokens. Composants : Claude édite une copie de `ds/` |
 
@@ -172,8 +172,9 @@ N’y mettez rien de sensible. Détails : [docs/AGENT_ADAPTERS.md](docs/AGENT_AD
 ## Plugin Figma (facultatif)
 
 Figma **desktop**, sur la même machine que DS-Studio. Guide pas à pas :
-[docs/FIGMA_PLUGIN.md](docs/FIGMA_PLUGIN.md). En bref : **Plugins →
-Development → Import plugin from manifest…** → `figma-plugin/manifest.json`,
+[docs/FIGMA_PLUGIN.md](docs/FIGMA_PLUGIN.md). Le plugin se télécharge depuis
+**Intégrations → Télécharger le plugin** (archive à décompresser). En bref :
+**Plugins → Development → Import plugin from manifest…** → `manifest.json`,
 puis dans un fichier : **Lire DS-Studio** → **Appliquer**. Le plugin crée ou met
 à jour la collection « Revela · DS-Studio » (45 variables, relues), puis
 construit les pages « Revela · Composants » (11 composants, 19 variantes) et
