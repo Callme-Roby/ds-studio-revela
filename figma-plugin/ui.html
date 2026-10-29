@@ -1,121 +1,285 @@
 <!doctype html>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
+  /* Même direction artistique que l'atelier DS-Studio : sombre, sobre, une
+     seule couleur d'action (blanc), bordures fines. Indépendant du thème Figma. */
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --raised: #161616;
+    --hover: #1c1c1c;
+    --border: #262626;
+    --control: #6b6b6b;
+    --text: #ededed;
+    --muted: #a1a1a1;
+    --subtle: #8f8f8f;
+    --primary: #ededed;
+    --primary-text: #0a0a0a;
+    --primary-hover: #d4d4d4;
+    --success: #6fdc9c;
+    --success-bg: #0d2116;
+    --warning: #f2c46d;
+    --warning-bg: #241b0b;
+    --danger: #ff9b9b;
+    --danger-bg: #2a1013;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * {
+    box-sizing: border-box;
+  }
   body {
-    font: 12px/1.45 Inter, system-ui, sans-serif;
+    font: 12px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
     margin: 0;
-    padding: 12px;
-    color: var(--figma-color-text, #111);
-    background: var(--figma-color-bg, #fff);
+    padding: 0 0 64px;
+    color: var(--text);
+    background: var(--bg);
+  }
+  header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .mark {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: var(--primary);
+    color: var(--primary-text);
+    font-weight: 700;
+    letter-spacing: -0.5px;
   }
   h1 {
     font-size: 13px;
-    margin: 0 0 4px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0;
+    font-size: 11px;
+  }
+  main {
+    display: grid;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  section {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  h2 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--subtle);
   }
   p {
     margin: 6px 0;
-    color: var(--figma-color-text-secondary, #555);
+    color: var(--muted);
   }
   .row {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
     align-items: center;
-    margin: 8px 0;
+    margin: 8px 0 0;
+  }
+  label {
+    color: var(--muted);
+  }
+  /* Case et texte côte à côte, le texte revient à la ligne sous lui-même. */
+  label.row {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+  label.row input {
+    flex: none;
+    margin: 2px 0 0;
+  }
+  input[type='checkbox'] {
+    accent-color: var(--primary);
+  }
+  input[type='file'] {
+    max-width: 100%;
+    color: var(--muted);
+    font: inherit;
+  }
+  input[type='file']::file-selector-button {
+    font: inherit;
+    margin-right: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--control);
+    background: var(--raised);
+    color: var(--text);
   }
   button {
     font: inherit;
-    padding: 6px 10px;
-    border-radius: 5px;
-    border: 1px solid var(--figma-color-border, #ccc);
-    background: var(--figma-color-bg, #fff);
-    color: inherit;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--control);
+    background: var(--raised);
+    color: var(--text);
     cursor: pointer;
   }
+  button:hover {
+    background: var(--hover);
+  }
   button.primary {
-    background: var(--figma-color-bg-brand, #0d99ff);
-    color: var(--figma-color-text-onbrand, #fff);
+    background: var(--primary);
+    color: var(--primary-text);
     border-color: transparent;
+  }
+  button.primary:hover {
+    background: var(--primary-hover);
   }
   button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
   }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 6px;
+    margin-top: 8px;
+    font-size: 11.5px;
+  }
+  th {
+    color: var(--subtle);
+    font-weight: 500;
   }
   th,
   td {
     text-align: left;
-    padding: 3px 4px;
-    border-bottom: 1px solid var(--figma-color-border, #eee);
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border);
     vertical-align: top;
+  }
+  td:first-child {
+    font-family: var(--mono);
+  }
+  #diff > p {
+    margin-top: 0;
   }
   .swatch {
     display: inline-block;
     width: 10px;
     height: 10px;
-    border-radius: 2px;
-    margin-right: 4px;
+    border-radius: 3px;
+    margin-right: 6px;
     vertical-align: -1px;
-    box-shadow: 0 0 0 1px #0003;
+    box-shadow: 0 0 0 1px var(--control);
   }
   .warn {
-    color: var(--figma-color-text-warning, #8f5600);
+    color: var(--warning);
+  }
+  tr.warn td {
+    background: var(--warning-bg);
   }
   .danger {
-    color: var(--figma-color-text-danger, #b00020);
+    color: var(--danger);
   }
   .ok {
-    color: var(--figma-color-text-success, #2e7d32);
+    color: var(--success);
   }
   #status {
     min-height: 18px;
+    margin: 0;
   }
-  h2 {
-    font-size: 12px;
-    margin: 14px 0 4px;
+  #status.ok,
+  #status.danger {
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+  #status.ok {
+    background: var(--success-bg);
+  }
+  #status.danger {
+    background: var(--danger-bg);
+  }
+  #specNote {
+    font-size: 11px;
+  }
+  footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
   }
 </style>
-<h1>Revela · DS-Studio</h1>
-<p>
-  Lit la révision validée dans DS-Studio, compare avec la collection « Revela ·
-  DS-Studio », écrit seulement après votre clic, puis relit.
-</p>
-<div class="row">
-  <button id="read">Lire DS-Studio</button>
-  <label><input type="checkbox" id="follow" /> Suivre les validations</label>
-  <label>
-    ou export JSON
-    <input type="file" id="file" accept=".json,application/json" />
-  </label>
-</div>
-<p id="status" role="status"></p>
-<div id="diff"></div>
-<label id="ack" hidden class="row warn">
-  <input type="checkbox" id="overwrite" />
-  <span id="ackText"></span>
-</label>
-<section id="specBox" hidden>
-  <h2>Composants et écrans</h2>
-  <p id="specText"></p>
-  <label class="row">
-    <input type="checkbox" id="build" />
-    Construire aussi les composants et les écrans (pages « Revela · Composants »
-    et « Revela · Écrans »)
-  </label>
-  <p class="warn" id="specNote">
-    Les composants et écrans générés sont reconstruits à chaque fois : une
-    retouche faite à l’intérieur sera remplacée. Vos instances ailleurs dans le
-    fichier suivent.
-  </p>
-</section>
-<div class="row">
-  <button class="primary" id="apply" disabled>Appliquer à Figma</button>
+<header>
+  <span class="mark" aria-hidden="true">ds.</span>
+  <div>
+    <h1>Revela · DS-Studio</h1>
+    <p>Variables, composants et écrans validés dans DS-Studio</p>
+  </div>
+</header>
+<main>
+  <section aria-labelledby="src-title">
+    <h2 id="src-title">Source</h2>
+    <p>
+      Lit la révision validée dans DS-Studio, compare avec la collection
+      « Revela · DS-Studio », écrit seulement après votre clic, puis relit.
+    </p>
+    <div class="row">
+      <button id="read">Lire DS-Studio</button>
+      <label><input type="checkbox" id="follow" /> Suivre les validations</label>
+    </div>
+    <div class="row">
+      <label>
+        ou export JSON
+        <input type="file" id="file" accept=".json,application/json" />
+      </label>
+    </div>
+  </section>
+  <p id="status" role="status"></p>
+  <section aria-labelledby="var-title">
+    <h2 id="var-title">Variables</h2>
+    <div id="diff"><p>Lisez DS-Studio pour voir le plan.</p></div>
+    <label id="ack" hidden class="row warn">
+      <input type="checkbox" id="overwrite" />
+      <span id="ackText"></span>
+    </label>
+  </section>
+  <section id="specBox" hidden aria-labelledby="spec-title">
+    <h2 id="spec-title">Composants et écrans</h2>
+    <p id="specText"></p>
+    <label class="row">
+      <input type="checkbox" id="build" />
+      Construire aussi les composants et les écrans (pages « Revela ·
+      Composants » et « Revela · Écrans »)
+    </label>
+    <p class="warn" id="specNote">
+      Les composants et écrans générés sont reconstruits à chaque fois : une
+      retouche faite à l’intérieur sera remplacée. Vos instances ailleurs dans
+      le fichier suivent.
+    </p>
+  </section>
+</main>
+<footer>
   <button id="close">Fermer</button>
-</div>
+  <button class="primary" id="apply" disabled>Appliquer à Figma</button>
+</footer>
 <script>
   // Figma n'accepte qu'un nom de domaine dans devAllowedDomains, pas une IP.
   const DS = 'http://localhost:4310/api/figma/tokens';
