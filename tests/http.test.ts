@@ -581,6 +581,45 @@ test('projets : ajout protégé (CSRF), bascule, retrait ; Revela toujours prés
   );
 });
 
+test('projet ajouté par le formulaire : tokens, composants et aperçu pré-remplis par la détection', async (t) => {
+  const { post } = await fixture(t);
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-prefill-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  await mkdir(path.join(folder, 'src', 'app'), { recursive: true });
+  await mkdir(path.join(folder, 'src', 'components'), { recursive: true });
+  await writeFile(
+    path.join(folder, 'src', 'app', 'globals.css'),
+    '@import "tailwindcss";\n:root {\n  --background: #f4f4f5;\n  --foreground: #1c1c1e;\n}\n',
+  );
+  await writeFile(
+    path.join(folder, 'src', 'components', 'Header.tsx'),
+    'export function Header() { return null; }\n',
+  );
+  await writeFile(
+    path.join(folder, 'package.json'),
+    JSON.stringify({
+      scripts: { dev: 'next dev' },
+      dependencies: { next: '16' },
+    }),
+  );
+  const list = await (
+    await post('projects/add', {
+      name: 'Billboard',
+      root: folder,
+      source: { type: 'local', url: '' },
+      figma: { plugin: false, fileUrl: '' },
+    })
+  ).json();
+  const p = list.projects.find((x: { id: string }) => x.id === 'billboard');
+  assert.deepEqual(p.tokens, [{ file: 'src/app/globals.css', format: 'css' }]);
+  assert.deepEqual(
+    p.components.map((c: { dir: string }) => c.dir),
+    ['src/components'],
+  );
+  assert.equal(p.preview.url, 'http://localhost:3000');
+});
+
 test('variables d’un projet externe : sources, proposition, validation sur place, annulation', async (t) => {
   const { origin, post } = await fixture(t);
   const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-tok-'));
@@ -677,6 +716,9 @@ test('composants et Git d’un projet externe : dossiers vérifiés, chemins fer
     source: { type: 'local', url: '' },
     figma: { plugin: false, fileUrl: '' },
   });
+  // Réglages pré-remplis par la détection : on repart de rien.
+  await post('projects/app/component-dirs', { components: [] });
+  await post('projects/app/sources', { tokens: [] });
   assert.equal(
     (await fetch(origin + '/api/projects/app/components')).status,
     409,
@@ -916,6 +958,9 @@ test('page catalogue générée par l’agent (faux CLI) : copie du projet, seul
     source: { type: 'local', url: '' },
     figma: { plugin: false, fileUrl: '' },
   });
+  // Réglages pré-remplis par la détection : on repart de rien.
+  await post('projects/site/component-dirs', { components: [] });
+  await post('projects/site/sources', { tokens: [] });
   assert.equal(
     (await post('projects/site/catalog/generate', { route: '/ds-studio' }))
       .status,
@@ -1016,6 +1061,9 @@ test('assistant d’un projet externe (faux CLI) : un diff de variables et un di
     source: { type: 'local', url: '' },
     figma: { plugin: false, fileUrl: '' },
   });
+  // Réglages pré-remplis par la détection : on repart de rien.
+  await post('projects/site/component-dirs', { components: [] });
+  await post('projects/site/sources', { tokens: [] });
   // Ni tokens ni composants déclarés : rien à confier à l'agent.
   assert.equal(
     (await post('projects/site/agent', { message: 'Adoucis le texte' })).status,

@@ -223,7 +223,9 @@ export class ProjectRegistry {
             `Dossier introuvable ou lien symbolique : ${c.dir}`,
           );
       }
-      p.components = components;
+      p.components = components.filter(
+        (c, i) => components.findIndex((x) => x.dir === c.dir) === i,
+      );
     });
   }
 
@@ -240,7 +242,10 @@ export class ProjectRegistry {
       const p = r.projects.find((x) => x.id === id);
       if (!p) throw new StudioError('Projet inconnu ou intégré.', 404);
       for (const s of sources) await resolveInside(p.root, s.file);
-      p.tokens = sources;
+      // Un même fichier ajouté deux fois ne compte qu'une fois.
+      p.tokens = sources.filter(
+        (s, i) => sources.findIndex((x) => x.file === s.file) === i,
+      );
     });
   }
 

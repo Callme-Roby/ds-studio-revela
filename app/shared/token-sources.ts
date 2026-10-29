@@ -50,18 +50,19 @@ export function validValue(type: TokenType, value: string): string | null {
 const lineAt = (text: string, index: number) =>
   text.slice(0, index).split('\n').length;
 
-// Variables CSS déclarées dans :root, html ou :host ; les autres sélecteurs
-// (thèmes, composants) sont comptés mais pas édités ici.
+// Variables CSS déclarées dans :root, html, :host ou @theme (Tailwind 4) ; les
+// autres sélecteurs (thèmes, composants) sont comptés mais pas édités ici.
 export function parseCss(text: string) {
   const tokens: FoundToken[] = [];
   let ignored = 0;
   const clean = text.replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length));
   const blockRe = /([^{}]+)\{([^{}]*)\}/g;
   for (const block of clean.matchAll(blockRe)) {
-    const selector = block[1].trim();
-    const root = /^(:root|html|:host)(\s*,\s*(:root|html|:host))*$/.test(
-      selector,
-    );
+    // Le sélecteur suit la dernière instruction (@import "…"; par exemple).
+    const selector = block[1].split(';').pop()!.trim();
+    const root =
+      /^(:root|html|:host)(\s*,\s*(:root|html|:host))*$/.test(selector) ||
+      /^@theme(\s+[a-z]+)*$/.test(selector);
     const bodyStart = block.index! + block[0].indexOf('{') + 1;
     for (const d of block[2].matchAll(
       /--([A-Za-z0-9_-]+)\s*:\s*([^;]*?)\s*(;|$)/g,

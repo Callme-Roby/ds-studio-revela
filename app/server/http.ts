@@ -33,6 +33,7 @@ import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
 import { externalPath, externalProposeSchema } from './components.js';
 import {
   componentSourceSchema,
+  defaultExtensions,
   localUrl,
   newProjectSchema as cloneBase,
   previewSchema,
@@ -147,6 +148,36 @@ export async function createStudioServer(options: {
     );
     externalStores.set(id, { key, store });
     return { project: p, store, catalog };
+  }
+  // Projet tout juste ajouté (actif) : la détection pré-remplit ses réglages,
+  // comme l'assistant de démarrage. Seul l'état de DS-Studio est écrit ;
+  // tout reste modifiable dans la vue d'ensemble.
+  async function prefill() {
+    const list = await projects.list();
+    const id = list.active;
+    try {
+      const p = await projects.project(id);
+      if (p.tokens.length || p.components.length) return list;
+      const d = await detectProject(p.root);
+      if (d.tokens.length)
+        await projects.setSources(
+          id,
+          d.tokens.slice(0, 2).map(({ file, format }) => ({ file, format })),
+        );
+      if (d.components.length)
+        await projects.setComponents(
+          id,
+          d.components.slice(0, 1).map((c) => ({
+            dir: c.dir,
+            extensions: [...defaultExtensions],
+          })),
+        );
+      if (!p.preview.url && (d.preview.url || d.preview.catalog))
+        await projects.setPreview(id, d.preview);
+    } catch {
+      /* Détection facultative : le projet reste ajouté, à régler à la main. */
+    }
+    return projects.list();
   }
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
@@ -846,11 +877,11 @@ export async function createStudioServer(options: {
             source: { type: 'github', url: b.url },
             figma: b.figma,
           });
-          return send(200, await projects.list());
+          return send(200, await prefill());
         }
         if (url.pathname === '/api/projects/add') {
           await projects.add(newProjectSchema.parse(body));
-          return send(200, await projects.list());
+          return send(200, await prefill());
         }
         if (url.pathname === '/api/projects/active') {
           const b = z

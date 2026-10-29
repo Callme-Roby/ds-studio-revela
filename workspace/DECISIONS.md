@@ -591,3 +591,11 @@ fichiers de tokens modifiés deviennent une proposition de valeurs (ajouts et
 suppressions de tokens ignorés, valeurs contrôlées) ; les dossiers de
 composants, une proposition de code. Chaque proposition s’ouvre dans son
 diff ; rien n’est écrit sans validation. Le reste de la copie est jeté.
+
+## Projets ajoutés par le formulaire : détection appliquée (2026-10-30)
+
+Comme l’assistant de démarrage, l’ajout d’un projet (dossier ou dépôt) pré-remplit
+fichiers de tokens, dossier de composants et adresse d’aperçu détectés ; seul
+l’état de DS-Studio est écrit, tout reste modifiable. Le lecteur CSS lit aussi
+`:root` après un `@import` et les blocs `@theme` de Tailwind 4 (cas réel :
+billboard). Un même fichier ou dossier déclaré deux fois ne compte qu’une fois.

@@ -33,6 +33,24 @@ test('CSS : variables de :root seulement, positions exactes, commentaires ignor�
   for (const t of tokens) assert.equal(css.slice(t.start, t.end), t.value);
 });
 
+test('CSS Tailwind 4 : :root après @import, blocs @theme lus', () => {
+  const text =
+    '@import "tailwindcss";\n\n:root {\n  --background: #f4f4f5;\n}\n\n@theme inline {\n  --color-background: var(--background);\n}\n';
+  const { tokens, ignored } = parse('css', text);
+  assert.deepEqual(
+    tokens.map((t) => [t.key, t.value, t.line]),
+    [
+      ['background', '#f4f4f5', 4],
+      ['color-background', 'var(--background)', 8],
+    ],
+  );
+  assert.equal(ignored, 0);
+  assert.equal(
+    write('css', text, { background: '#ffffff' }),
+    text.replace('#f4f4f5', '#ffffff'),
+  );
+});
+
 test('CSS : réécriture sur place, le reste du fichier intact octet pour octet', () => {
   const out = write('css', css, { brand: '#112233', 'space-md': '20px' });
   assert.equal(out, css.replace('#3355FF', '#112233').replace('16px', '20px'));
