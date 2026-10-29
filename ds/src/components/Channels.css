@@ -1,0 +1,30 @@
+/* Channels : uniquement des variables de tokens.css. */
+.rv-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: var(--font-md);
+}
+.rv-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.rv-channel > span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+.rv-channel.R > span {
+  background: var(--color-channelR);
+}
+.rv-channel.G > span {
+  background: var(--color-channelG);
+}
+.rv-channel.B > span {
+  background: var(--color-channelB);
+}
+.rv-channel.mask > span {
+  background: var(--color-maskHandle);
+  box-shadow: 0 0 0 1px var(--color-text);
+}

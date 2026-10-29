@@ -323,3 +323,58 @@ relit. DS-Studio n’obtient aucun accès Figma ; le chat IA non plus.
 - Plugin de développement : fonctionne seulement avec Figma desktop sur la
   machine où DS-Studio tourne ; testé dans le fichier de test, pas encore dans
   le fichier Revela réel ; aucune liaison des variables aux composants Figma.
+
+## 2026-10-29 — Phase B : arborescence, catalogues, code des composants, agent de code
+
+**Demande de l’étudiant.** Un outil relié au code du DS : modifier variables et
+composants avec aperçu, mettre à jour le projet, un LLM qui vérifie et modifie
+plus largement (« vibe coding »), l’historique des versions ; une barre latérale,
+plus de place pour l’iframe, variables et composants en catalogue avec bascule
+Aperçu / Code, l’assistant flottant et repliable.
+
+**Choix.**
+- Barre latérale : Aperçu, Variables, Composants, Historique, Projet,
+  Intégrations ; routage par ancre (`#/composants/button`).
+- Aperçu : Revela à sa largeur réelle (1024 à 1920 px), réduit pour tenir dans
+  la fenêtre (option « Ajuster »), sans changer sa largeur CSS.
+- DS découpé : un TSX + un CSS par composant, écrans à part, registre
+  `catalog.tsx` (fichiers + démonstration). L’onglet Code d’une fiche ouvre ses
+  vrais fichiers.
+- Variables : l’aperçu rend les composants qui utilisent la variable avec le
+  brouillon, avant toute proposition ; l’onglet Code montre la ligne de
+  `tokens.css` et les utilisations dans `ds/src` (index des `var(--…)`).
+- Code : une proposition n’écrit rien ; DS-Studio compile en mémoire une copie
+  de `ds/src` avec la proposition (aperçu réel du code proposé) ; une
+  proposition qui ne compile pas ne peut pas être validée ; la validation
+  vérifie que les fichiers n’ont pas changé depuis la proposition, écrit, relit,
+  journalise (révision `c`), recompile l’interface, et crée si demandé un commit
+  Git local des seuls fichiers validés (`git commit --only`, jamais de push).
+- Agent de code : Claude Code (Sonnet 5.5, effort moyen) dans une copie
+  temporaire de `ds/`, outils `Read, Edit, Write, Glob, Grep` en `acceptEdits`,
+  ni shell, ni MCP, ni réglages chargés. Seules les différences dans `src/`
+  deviennent une proposition ; écritures hors copie ou dans `tokens.css` ignorées.
+
+**Incidents et corrections.**
+- Course à l’affichage : en changeant d’onglet de fichier, l’éditeur montrait un
+  instant l’ancien contenu sous le nouveau nom ; une proposition aurait écrasé
+  `Button.css` avec le TSX. Trouvé par le test navigateur ; le contenu est
+  désormais lié au fichier chargé.
+- Arrêt du serveur : un onglet ouvert gardait une connexion persistante et
+  l’arrêt propre prenait jusqu’à 2 min 30 (cause probable du verrou bloqué du
+  2026-10-29, le serveur ayant été tué pendant ce délai). Connexions fermées à
+  l’arrêt : environ 1 s.
+- Les tests navigateur travaillent sur une copie de `ds/` (`DS_STUDIO_DS_DIR`) :
+  une validation de code en test n’écrit jamais dans le dépôt.
+
+**Preuves.** `npm run check`, `npm run build` ; 65 tests unitaires et API
+(2 ignorés, Linux) dont stockage du code, conflit, chemins refusés, compilation
+échouée, commit Git limité, agent de code avec faux CLI, routes HTTP ; 14 tests
+navigateur dont l’édition de `Button.css` avec aperçu compilé (rayon 20 px avant
+écriture), validation et annulation ; 20 tests du lanceur ; `qualify`.
+
+**Limites connues.**
+- Agent de code non encore essayé avec un envoi réel (quota de l’étudiant).
+- Éditeur de code simple (zone de texte), sans coloration ni autocomplétion.
+- Après une validation de code en `npm start`, l’interface se recompile puis se
+  recharge (environ 1 s).
+- Figma reçoit toujours les variables seulement (phase C).

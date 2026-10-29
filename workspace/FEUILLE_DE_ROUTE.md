@@ -37,8 +37,8 @@ sans compte, Claude et Figma restent facultatifs.
 
 | # | Phase | Contenu | Statut |
 | - | ----- | ------- | ------ |
-| A | Dépôt livrable | `ds/` (tokens + composants réels) cible par défaut, DA sombre, README, guide plugin, CI, `git init` | EN COURS |
-| B | Composants et IA | Éditeur de composants (fichiers de `ds/src`), agent Claude avec outils limités à une copie de `ds/`, diff de code + aperçu + validation, chaque validation = commit (historique) | PRÉVU |
+| A | Dépôt livrable | `ds/` (tokens + composants réels) cible par défaut, DA sombre, README, guide plugin, CI, `git init` | TESTED (CI verte Windows/macOS/Linux, publié sur GitHub) |
+| B | Composants et IA | Nouvelle arborescence (barre latérale, Aperçu, catalogues Variables/Composants avec Aperçu/Code, Historique, assistant flottant) ; un fichier par composant ; propositions de code avec diff, aperçu compilé, validation, annulation, commit Git local ; agent Claude sur copie isolée de `ds/` | TESTED (unitaires, API, navigateur ; agent avec faux CLI), envoi réel de l’agent de code à qualifier |
 | C | Figma composants | Le plugin crée/actualise composants et pages à partir d’une description exportée par DS-Studio, liés aux variables | PRÉVU |
 
 ## Pourquoi cet ordre

@@ -335,3 +335,76 @@ test('mode manuel disponible immédiatement même si la détection IA ne répond
   assert.equal(response.status, 200);
   assert.equal(typeof (await response.json()).csrf, 'string');
 });
+
+test('composants : propose, aperçu, valide, annule ; agent de code via diff ; périmètre fermé', async (t) => {
+  const { cp } = await import('node:fs/promises');
+  const { ComponentStore } = await import('../app/server/components.js');
+  const directory = await mkdtemp(path.join(tmpdir(), 'ds-http-comp-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await cp(path.join(root, 'ds'), path.join(directory, 'ds'), { recursive: true });
+  const store = new Store(path.join(directory, 'data'), seed);
+  await store.init();
+  const components = new ComponentStore(
+    path.join(directory, 'ds', 'src'),
+    store.directory,
+    path.join(directory, 'preview'),
+  );
+  let rebuilt = 0;
+  const app = await createStudioServer({
+    root,
+    store,
+    components,
+    rebuild: async () => {
+      rebuilt++;
+    },
+    claude: new ClaudeAdapter(process.execPath, [path.join(root, 'tests/fixtures/fake-claude.mjs'), 'ok']),
+    editor: {
+      async edit() {
+        return {
+          message: 'Ghost ajouté.',
+          denied: 0,
+          changes: [{ path: 'components/Ghost.tsx', content: 'export const Ghost = () => null;\n' }],
+        };
+      },
+    },
+  });
+  await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', r));
+  t.after(() => app.close());
+  const origin = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
+  const { csrf } = await (await fetch(origin + '/api/bootstrap')).json();
+  const post = (route: string, body: unknown) =>
+    fetch(origin + '/api/' + route, {
+      method: 'POST',
+      headers: { Origin: origin, 'Content-Type': 'application/json', 'X-DS-Studio': csrf },
+      body: JSON.stringify(body),
+    });
+  const list = await (await fetch(origin + '/api/components')).json();
+  assert.ok(list.files.some((f: { path: string }) => f.path === 'components/Button.tsx'));
+  assert.equal((await fetch(origin + '/api/components/file?path=../package.json')).status, 400);
+  const css = (await (await fetch(origin + '/api/components/file?path=components/Button.css')).json()).content;
+  const p = await (
+    await post('components/propose', {
+      changes: [{ path: 'components/Button.css', content: css + '\n/* test */\n' }],
+    })
+  ).json();
+  assert.equal(p.source, 'manual');
+  assert.equal((await post('components/propose', { changes: [{ path: '../evil.ts', content: '' }] })).status, 400);
+  // Aperçu absent (aucun compilateur injecté) : 404, jamais un fichier du disque.
+  assert.equal((await fetch(`${origin}/preview/code/${p.id}/index.html`)).status, 404);
+  const done = await (await post('components/commit', { id: p.id, git: false })).json();
+  assert.equal(done.entry.revision, 1);
+  assert.equal(done.rebuilt, true);
+  assert.equal(rebuilt, 1);
+  assert.match(await readFile(path.join(directory, 'ds/src/components/Button.css'), 'utf8'), /\/\* test \*\//);
+  const agent = await (await post('components/agent', { message: 'Ajoute Ghost' })).json();
+  assert.equal(agent.message, 'Ghost ajouté.');
+  assert.equal(agent.proposal.source, 'claude');
+  await assert.rejects(() => readFile(path.join(directory, 'ds/src/components/Ghost.tsx')));
+  assert.equal((await post('components/discard', { id: agent.proposal.id })).status, 200);
+  assert.equal((await post('components/commit', { id: agent.proposal.id })).status, 404);
+  const undo = await (await post('components/undo', { id: done.entry.id })).json();
+  assert.equal((await post('components/commit', { id: undo.id })).status, 200);
+  assert.equal(await readFile(path.join(directory, 'ds/src/components/Button.css'), 'utf8'), css);
+  // Le vrai ds/ du dépôt n'a jamais été touché.
+  assert.doesNotMatch(await readFile(path.join(root, 'ds/src/components/Button.css'), 'utf8'), /\/\* test \*\//);
+});

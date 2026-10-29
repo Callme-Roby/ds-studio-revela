@@ -7,9 +7,18 @@ Lire [START_HERE.md](START_HERE.md). Le contexte appartient à l’étudiant.
 - `app/shared/model.ts` : contrat des tokens, validations, diff et variables CSS.
 - `app/server/store.ts` : propositions, journal local et annulations sélectives.
 - `app/server/http.ts` : frontière HTTP locale et routes à périmètre fermé.
-- `ds/` : DS Revela livré avec le dépôt (`tokens.css` généré, `src/` composants
-  et styles). `app/client/DesignSystem.tsx` l’affiche avec les variables du brouillon.
+- `ds/` : DS Revela livré avec le dépôt (`tokens.css` généré ; `src/components/`
+  un TSX + un CSS par composant, `screens/`, `catalog.tsx` registre du catalogue).
+  `app/client/DesignSystem.tsx` l’affiche avec les variables du brouillon.
+- `app/client/` : coquille (`App.tsx`, barre latérale), `views/` (Aperçu,
+  Variables, Composants, Historique, Intégrations), `Assistant.tsx` flottant,
+  dialogues de diff (`TokenDiffDialog`, `CodeDiffDialog`).
 - `app/server/code-target.ts` : écriture de `tokens.css` (par défaut `ds/tokens.css`).
+- `app/server/components.ts` : propositions de code limitées à `ds/src`, diff,
+  validation relue, journal `components-history.json`, annulation ;
+  `preview-build.ts` (aperçu compilé en mémoire), `git.ts` (commit local facultatif).
+- `connectors/agents/claude-code.ts` : agent de code sur une copie temporaire de
+  `ds/`, outils fichiers seulement ; ses différences deviennent une proposition.
 - `connectors/agents/` : Codex et Claude Code (profil sans outils) qualifiés, Gemini indisponible.
 - `connectors/figma/` : contrat ; `figma-plugin/` : plugin de développement (variables).
 - `workspace/` : PFE, règles, décisions et DS d’exemple versionnables.
@@ -18,7 +27,10 @@ Lire [START_HERE.md](START_HERE.md). Le contexte appartient à l’étudiant.
 Ne remplacez pas le mécanisme de validation par un accès fichier libre de l’agent.
 Ne laissez pas de commande ou d’écriture proposée s’exécuter automatiquement.
 Le chat embarqué refuse toute exécution de commande, plutôt que de fournir une fausse
-dialogue de permissions. Le chat ne propose que des tokens connus. Le brief privé possède sa propre API fermée.
+dialogue de permissions. Le chat Variables ne propose que des tokens connus ;
+l’agent de code n’édite qu’une copie temporaire de `ds/` et seules ses différences
+dans `ds/src` deviennent une proposition, soumise au diff et à la validation.
+Le brief privé possède sa propre API fermée.
 
 ## Skills
 

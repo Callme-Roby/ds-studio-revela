@@ -24,3 +24,4 @@ Thumbs.db
 
 # Suivi de reprise local, non destiné à la distribution.
 /PROGRESS.md
+.ds-studio-preview/

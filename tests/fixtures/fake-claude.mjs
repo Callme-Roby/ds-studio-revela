@@ -1,5 +1,5 @@
 // Faux CLI Claude pour les tests : le premier argument choisit le scénario.
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const [mode, ...args] = process.argv.slice(2);
 if (args.includes('--version')) {
@@ -33,7 +33,21 @@ process.stdin.on('end', () => {
   else if (mode === 'error') out({ is_error: true, num_turns: 1, result: 'Failed to authenticate SECRET_ACCOUNT' });
   else if (mode === 'badkey')
     ok({ message: 'x', changes: [{ key: 'color.inventée', value: '#000000' }] });
-  else if (mode === 'leak') {
+  else if (mode === 'code') {
+    // Agent de code : édite la copie de ds/ (dossier courant), tente aussi
+    // d'écrire hors de src/ et hors de la copie ; seul src/ doit compter.
+    const css = readFileSync('src/components/Button.css', 'utf8');
+    writeFileSync('src/components/Button.css', css.replace('var(--radius-control)', 'var(--radius-lg)'));
+    writeFileSync('src/components/Ghost.tsx', 'export const Ghost = () => null;\n');
+    writeFileSync('tokens.css', '/* modifié */');
+    writeFileSync('../hors-copie.txt', 'x');
+    out({
+      is_error: false,
+      num_turns: 6,
+      permission_denials: [{ tool_name: 'Write' }],
+      result: 'Boutons plus arrondis ; composant Ghost ajouté.',
+    });
+  } else if (mode === 'leak') {
     process.stderr.write('PRIVATE_TOKEN_DETAIL');
     process.exit(1);
   }

@@ -1,0 +1,50 @@
+/* AiSearch : uniquement des variables de tokens.css. */
+.rv-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.rv-search-field {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 36px;
+  padding: 0 var(--space-md);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+    linear-gradient(
+        90deg,
+        var(--color-aiStart),
+        var(--color-aiMid),
+        var(--color-aiEnd)
+      )
+      border-box;
+}
+.rv-search-field:focus-within {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+.ds .rv-search-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: var(--font-md);
+  background: transparent;
+  color: var(--color-text);
+}
+.rv-ai-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-aiStart), var(--color-aiEnd));
+}
+.rv-search .ds-button {
+  min-height: 36px;
+}

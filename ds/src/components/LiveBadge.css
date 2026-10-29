@@ -1,0 +1,21 @@
+/* LiveBadge : uniquement des variables de tokens.css. */
+/* Composants Revela. Les fonds de photo simulés sont le seul gris hors token. */
+.rv-live {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-md);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.rv-live.live {
+  color: var(--color-success);
+}
+.rv-live.offline {
+  color: var(--color-muted);
+}
+.rv-live.error {
+  color: var(--color-danger);
+  background: var(--color-dangerSurface);
+}

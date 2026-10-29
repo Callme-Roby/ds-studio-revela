@@ -1,0 +1,80 @@
+/* Base du DS Revela (typographie, focus, libellés partagés) : uniquement des variables de tokens.css. */
+.ds {
+  font-family: var(--font-family);
+  font-size: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-surface);
+  line-height: 1.5;
+}
+.ds h1,
+.ds h2,
+.ds h3 {
+  color: var(--color-text);
+}
+.ds h1 {
+  font-size: var(--font-heading);
+  line-height: 1.22;
+  letter-spacing: -0.7px;
+}
+.ds h3 {
+  font-size: calc(var(--font-body) * 1.2);
+  line-height: 1.35;
+  margin: var(--space-sm) 0;
+}
+.ds p {
+  color: var(--color-muted);
+}
+.ds :focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+.catalogue {
+  padding: var(--space-lg);
+}
+.catalogue > section + section {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+.section-label {
+  font-size: var(--font-xs);
+  font-weight: 650;
+  letter-spacing: 1.3px;
+  color: var(--color-muted);
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.ds .ds-caption {
+  font-size: var(--font-md);
+  margin: var(--space-md) 0 0;
+}
+.rv-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-sm);
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+.rv-label em {
+  font-style: normal;
+  color: var(--color-text);
+}
+.ds .rv-status {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-md);
+  color: var(--color-success);
+}
+.preview-body {
+  background: white;
+}
+/* Catalogue : fond passe-partout pour les composants posés sur la photo. */
+.catalog-mat {
+  background: var(--color-mat);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+}

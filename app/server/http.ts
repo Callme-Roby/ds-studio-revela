@@ -14,6 +14,14 @@ import { auditProposal } from '../shared/rules.js';
 import { unvalidatedAdapter } from '../../connectors/agents/unvalidated.js';
 import type { AgentAdapter } from '../../connectors/agents/types.js';
 import { figmaStatus } from '../../connectors/figma/contract.js';
+import {
+  ComponentStore,
+  codeProposeSchema,
+  componentPath,
+} from './components.js';
+import { previewBuilder } from './preview-build.js';
+import { gitCommitter } from './git.js';
+import { ClaudeCodeEditor } from '../../connectors/agents/claude-code.js';
 import type { RecordInfo } from '../../scripts/runtime.mjs';
 
 export async function createStudioServer(options: {
@@ -24,6 +32,13 @@ export async function createStudioServer(options: {
   dev?: boolean;
   // Fichier tokens.css écrit sans code-target.json (ds/tokens.css en usage normal).
   codeFile?: string;
+  // Dossier du DS (par défaut ds/ du dépôt), code des composants et agent de
+  // code ; remplaçables en test.
+  dsDir?: string;
+  components?: ComponentStore;
+  editor?: Pick<ClaudeCodeEditor, 'edit'>;
+  // Recompilation de dist/ après validation de code (par défaut hors mode dev).
+  rebuild?: () => Promise<void>;
   control?: { record: RecordInfo; stop: () => void };
 }) {
   const { root, store } = options;
@@ -38,8 +53,25 @@ export async function createStudioServer(options: {
     () => store.snapshot(),
     options.codeFile,
   );
+  const preview = previewBuilder(root);
+  const dsDir = options.dsDir ?? path.join(root, 'ds');
+  const components =
+    options.components ??
+    new ComponentStore(
+      path.join(dsDir, 'src'),
+      store.directory,
+      path.join(root, '.ds-studio-preview'),
+      preview.build,
+      gitCommitter(path.join(dsDir, 'src')),
+    );
+  // dist/ est compilé depuis ds/ du dépôt : inutile pour un autre dossier DS.
+  const rebuild =
+    options.rebuild ??
+    (options.dev || options.dsDir ? undefined : preview.rebuildDist);
+  const editor = options.editor ?? new ClaudeCodeEditor(dsDir);
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
+  let closing = false;
   const active = new Set<AbortController>();
   const vite = options.dev
     ? await (
@@ -62,6 +94,7 @@ export async function createStudioServer(options: {
         res.end(JSON.stringify(value));
       }
     };
+    if (closing) res.setHeader('Connection', 'close');
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -146,6 +179,20 @@ export async function createStudioServer(options: {
             const { revision, tokens } = store.snapshot();
             return send(200, { revision, tokens });
           }
+          if (url.pathname === '/api/components')
+            return send(200, {
+              files: await components.list(),
+              history: await components.history(),
+            });
+          if (url.pathname === '/api/components/usages')
+            return send(200, await components.usages());
+          if (url.pathname === '/api/components/file') {
+            const file = z
+              .string()
+              .regex(componentPath)
+              .parse(url.searchParams.get('path'));
+            return send(200, { path: file, content: await components.read(file) });
+          }
           if (url.pathname === '/api/export')
             return send(200, store.snapshot().tokens);
           throw new StudioError('Route inconnue.', 404);
@@ -163,7 +210,8 @@ export async function createStudioServer(options: {
         let size = 0;
         for await (const chunk of req) {
           size += chunk.length;
-          if (size > 128_000)
+          // Un fichier de composant complet peut dépasser la limite générale.
+          if (size > (url.pathname === '/api/components/propose' ? 450_000 : 128_000))
             throw new StudioError('Requête trop volumineuse.', 413);
           chunks.push(chunk);
         }
@@ -222,6 +270,65 @@ export async function createStudioServer(options: {
           const state = await store.commit(b.id);
           // La révision est acquise ; le code suit, sans pouvoir l'annuler.
           return send(200, { state, code: await code.write() });
+        }
+        if (url.pathname === '/api/components/propose') {
+          const b = codeProposeSchema.parse(body);
+          return send(200, await components.propose(b.changes, 'manual', b.message));
+        }
+        if (url.pathname === '/api/components/commit') {
+          const b = z
+            .object({ id: z.string().uuid(), git: z.boolean().optional() })
+            .strict()
+            .parse(body);
+          const result = await components.commit(b.id, b.git);
+          preview.drop(b.id);
+          // Le code est écrit ; la recompilation de l'interface suit sans l'annuler.
+          let rebuilt = false;
+          if (rebuild)
+            rebuilt = await rebuild().then(
+              () => true,
+              () => false,
+            );
+          return send(200, { ...result, rebuilt });
+        }
+        if (url.pathname === '/api/components/discard') {
+          const b = z.object({ id: z.string().uuid() }).strict().parse(body);
+          components.discard(b.id);
+          preview.drop(b.id);
+          return send(200, {});
+        }
+        if (url.pathname === '/api/components/undo') {
+          const b = z.object({ id: z.string().uuid() }).strict().parse(body);
+          return send(200, await components.undo(b.id));
+        }
+        if (url.pathname === '/api/components/agent') {
+          const b = z
+            .object({ message: z.string().trim().min(1).max(8000) })
+            .strict()
+            .parse(body);
+          if (busy)
+            throw new StudioError('Une demande IA est déjà en cours.', 429);
+          const status = await adapters.claude.status();
+          if (!status.available) throw new StudioError(status.detail, 503);
+          busy = true;
+          const controller = new AbortController();
+          active.add(controller);
+          const cancel = () => controller.abort();
+          res.once('close', cancel);
+          try {
+            const rules = await fs
+              .readFile(path.join(root, 'workspace', 'DESIGN_RULES.md'), 'utf8')
+              .catch(() => '');
+            const reply = await editor.edit(b.message, { rules }, controller.signal);
+            const proposal = reply.changes.length
+              ? await components.propose(reply.changes, 'claude', b.message.slice(0, 200))
+              : null;
+            return send(200, { message: reply.message, denied: reply.denied, proposal });
+          } finally {
+            busy = false;
+            active.delete(controller);
+            res.off('close', cancel);
+          }
         }
         if (url.pathname === '/api/code/sync') {
           z.object({}).strict().parse(body);
@@ -295,6 +402,16 @@ export async function createStudioServer(options: {
       }
       if (req.method !== 'GET' && req.method !== 'HEAD')
         throw new StudioError('Méthode non autorisée.', 405);
+      // Aperçu compilé d'une proposition de code, servi depuis la mémoire.
+      const codePreview = url.pathname.match(
+        /^\/preview\/code\/([0-9a-f-]{36})\/(.*)$/,
+      );
+      if (codePreview) {
+        const asset = preview.asset(codePreview[1], codePreview[2]);
+        if (!asset) throw new StudioError('Aperçu expiré : reproposez.', 404);
+        res.setHeader('Content-Type', asset.type);
+        return res.end(asset.body);
+      }
       if (vite) {
         const allowed = [
           '/app/client/',
@@ -360,9 +477,16 @@ export async function createStudioServer(options: {
     server,
     close: async () => {
       for (const c of active) c.abort();
-      await new Promise<void>((resolve, reject) =>
+      closing = true;
+      const closed = new Promise<void>((resolve, reject) =>
         server.close((e) => (e ? reject(e) : resolve())),
       );
+      // Un onglet ouvert interroge l'état toutes les 1,2 s sur une connexion
+      // persistante : sans cela, l'arrêt attendrait la fin de cette connexion.
+      server.closeIdleConnections();
+      const force = setTimeout(() => server.closeAllConnections(), 2000);
+      await closed;
+      clearTimeout(force);
       await vite?.close();
     },
   };

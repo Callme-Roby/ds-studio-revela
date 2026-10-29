@@ -45,6 +45,10 @@ try {
     root,
     store,
     dev: process.argv.includes('--dev'),
+    // Copie du DS pour les tests navigateur : jamais le ds/ du dépôt.
+    dsDir: process.env.DS_STUDIO_DS_DIR
+      ? path.resolve(process.env.DS_STUDIO_DS_DIR)
+      : undefined,
     // DS du dépôt par défaut, sauf avec un dossier de données de test
     // (DS_STUDIO_DATA_DIR) : e2e et qualification ne touchent pas ds/.
     codeFile: process.env.DS_STUDIO_DATA_DIR

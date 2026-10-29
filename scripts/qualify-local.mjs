@@ -120,16 +120,18 @@ try {
       const page = await browser.newPage({
         viewport: { width: 1600, height: 1000 },
       });
-      await page.goto(origin);
-      await page
-        .getByRole('combobox', { name: 'Mode de travail', exact: true })
+      await page.goto(origin + '/#/variables');
+      await page.getByRole('button', { name: /Assistant IA/ }).click();
+      const assistant = page.getByRole('complementary', { name: 'Assistant IA' });
+      await assistant
+        .getByRole('combobox', { name: 'Agent', exact: true })
         .selectOption('codex');
-      await page
+      await assistant
         .getByLabel('Votre demande', { exact: true })
         .fill(
           'Propose exactement color.brand = #8A3B20. Ne change aucun autre token.',
         );
-      await page
+      await assistant
         .getByRole('button', { name: 'Envoyer à Codex', exact: true })
         .click();
       const dialog = page.getByRole('dialog');
@@ -146,29 +148,20 @@ try {
       await dialog.waitFor({ state: 'hidden' });
       const updated = await (await fetch(origin + '/api/state')).json();
       assert.equal(updated.tokens['color.brand'].$value, '#8A3B20');
-      const button = page
-        .locator('.ds-panel')
-        .getByRole('button', { name: 'Action principale', exact: true });
-      await expect(button).toHaveCSS('background-color', 'rgb(138, 59, 32)');
-      const mobile = page
-        .frameLocator('iframe')
-        .getByRole('button', { name: 'Réserver une place', exact: true });
-      await page.waitForFunction(() => {
-        const f = document.querySelector('iframe');
-        const b = f?.contentDocument?.querySelector('.ds-button.primary');
-        return (
-          !!b &&
-          f.contentWindow.getComputedStyle(b).backgroundColor ===
-            'rgb(138, 59, 32)'
-        );
-      });
-      await mobile.click();
-      await page
-        .frameLocator('iframe')
-        .getByRole('button', { name: 'Réservation confirmée ✓' })
-        .waitFor();
+      await page.goto(origin + '/#/composants/button');
+      await expect(
+        page
+          .locator('.ds-canvas')
+          .getByRole('button', { name: 'Déclencher', exact: true }),
+      ).toHaveCSS('background-color', 'rgb(138, 59, 32)');
+      await page.goto(origin + '/#/apercu');
+      await expect(
+        page
+          .frameLocator('iframe[title="Aperçu de Revela"]')
+          .getByRole('button', { name: 'Déclencher', exact: true }),
+      ).toHaveCSS('background-color', 'rgb(138, 59, 32)');
       console.log(
-        'PASS: vrai chat Codex dans Chromium → API → diff sans commit → acceptation explicite → CSS catalogue/mobile et interaction.',
+        'PASS: vrai chat Codex dans Chromium → API → diff sans commit → acceptation explicite → catalogue et aperçu Revela.',
       );
     } finally {
       await browser.close();

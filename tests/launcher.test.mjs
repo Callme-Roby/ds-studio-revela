@@ -353,7 +353,7 @@ test(
           const { chromium } = await import('@playwright/test');
           browser = await chromium.launch();
           const page = await browser.newPage();
-          await page.goto(`http://127.0.0.1:${port}`);
+          await page.goto(`http://127.0.0.1:${port}/#/variables`);
           await page.getByLabel('Valeur du token').fill('#224477');
           await action('restart');
           await page

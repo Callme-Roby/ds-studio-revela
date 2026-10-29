@@ -1,0 +1,12 @@
+/* Slider : uniquement des variables de tokens.css. */
+.rv-control,
+.rv-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+.rv-control input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-brand);
+}

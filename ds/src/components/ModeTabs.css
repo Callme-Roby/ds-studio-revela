@@ -1,0 +1,24 @@
+/* ModeTabs : uniquement des variables de tokens.css. */
+.rv-modes {
+  display: flex;
+  gap: var(--space-xs);
+}
+.rv-modes button {
+  font: inherit;
+  font-size: var(--font-md);
+  min-height: 32px;
+  padding: var(--space-xs) var(--space-md);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.rv-modes button:hover {
+  background: var(--color-surfaceHover);
+  color: var(--color-text);
+}
+.rv-modes button[aria-current='page'] {
+  background: var(--color-brand);
+  color: var(--color-onBrand);
+}

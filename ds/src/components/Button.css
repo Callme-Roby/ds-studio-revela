@@ -1,0 +1,34 @@
+/* Button : uniquement des variables de tokens.css. */
+.ds-button {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-brand);
+  color: var(--color-onBrand);
+  cursor: pointer;
+  transition: background 0.12s;
+  min-height: 44px;
+}
+.ds-button.primary:hover {
+  background: var(--color-brandHover);
+}
+.ds-button.secondary {
+  border-color: var(--color-brand);
+  background: var(--color-surface);
+  color: var(--color-brand);
+}
+.ds-button.secondary:hover {
+  background: var(--color-canvas);
+}
+.ds-button.danger {
+  background: var(--color-danger);
+  color: var(--color-onBrand);
+}
+.ds-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

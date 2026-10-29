@@ -1,0 +1,52 @@
+/* Thumb : uniquement des variables de tokens.css. */
+.rv-strip {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding: var(--space-2xs) var(--space-2xs) var(--space-xs);
+}
+.rv-thumb {
+  position: relative;
+  margin: 0;
+  flex: 0 0 120px;
+}
+.rv-photo {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-control);
+  background: linear-gradient(
+    160deg,
+    hsl(0 0% calc(var(--shade) + 18%)),
+    hsl(0 0% var(--shade)) 60%,
+    hsl(0 0% calc(var(--shade) - 14%))
+  );
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+.rv-thumb.is-pick .rv-photo {
+  box-shadow: 0 0 0 2px var(--color-pick);
+}
+.rv-pick {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 75%, transparent);
+  color: var(--color-onBrand);
+  font-size: var(--font-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.rv-thumb.is-pick .rv-pick {
+  color: var(--color-pick);
+}
+.rv-thumb figcaption {
+  margin-top: var(--space-xs);
+  font-size: var(--font-sm);
+  color: var(--color-muted);
+}
+.rv-thumb figcaption em {
+  font-style: normal;
+  color: var(--color-success);
+}

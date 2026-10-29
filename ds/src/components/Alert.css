@@ -1,0 +1,18 @@
+/* Alert : uniquement des variables de tokens.css. */
+.ds .rv-alert {
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-sm) var(--space-md);
+  border-left: 3px solid;
+  border-radius: var(--radius-control);
+  font-size: var(--font-md);
+}
+.ds .rv-alert.warning {
+  color: var(--color-warning);
+  background: var(--color-warningSurface);
+  border-color: var(--color-warningBorder);
+}
+.ds .rv-alert.danger {
+  color: var(--color-danger);
+  background: var(--color-dangerSurface);
+  border-color: var(--color-danger);
+}

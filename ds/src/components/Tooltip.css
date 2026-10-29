@@ -1,0 +1,10 @@
+/* Tooltip : uniquement des variables de tokens.css. */
+.rv-tooltip {
+  display: inline-block;
+  margin-top: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-control);
+  background: var(--color-mat);
+  color: var(--color-canvas);
+  font-size: var(--font-sm);
+}
