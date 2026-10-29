@@ -68,7 +68,9 @@ export function renderCss(tokens: Tokens, revision: number) {
 }
 
 // Relit l'en-tête : la révision écrite et si le corps correspond à son empreinte.
-export function readGenerated(raw: string) {
+// Git sous Windows peut convertir les fins de ligne : CRLF ne compte pas comme retouche.
+export function readGenerated(input: string) {
+  const raw = input.replace(/\r\n/g, '\n');
   const m = raw.match(
     /^\/\* DS-Studio · fichier généré : .*\n \* Révision (\d+) · empreinte ([0-9a-f]{16})\n.*\*\/\n/,
   );
@@ -148,7 +150,8 @@ export class CodeTarget {
     const revision = this.current().revision;
     if (i.state === 'generated')
       return i.revision === revision &&
-        i.raw === renderCss(this.current().tokens, revision)
+        i.raw.replace(/\r\n/g, '\n') ===
+          renderCss(this.current().tokens, revision)
         ? { configured: true, file, state: 'synced', revision, detail: `À jour (révision ${revision}).` }
         : { configured: true, file, state: 'outdated', revision: i.revision, detail: `Révision ${i.revision} dans le code, ${revision} dans DS-Studio.` };
     return {

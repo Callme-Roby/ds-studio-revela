@@ -49,6 +49,14 @@ test('sans configuration mais DS du dépôt : écrit dans la cible par défaut',
   await writeFile(path.join(data, 'code-target.json'), JSON.stringify({ file: other }));
   assert.equal((await code.write()).file, other);
 });
+test('fins de ligne CRLF (checkout Windows) : fichier toujours reconnu intact', async (t) => {
+  const { code, file } = await fixture(t);
+  await code.write();
+  await writeFile(file, (await readFile(file, 'utf8')).replace(/\n/g, '\r\n'));
+  assert.deepEqual(readGenerated(await readFile(file, 'utf8')), { revision: 0, intact: true });
+  assert.equal((await code.status() as { state: string }).state, 'synced');
+  assert.equal((await code.write()).status, 'written');
+});
 test('le DS livré est synchronisé avec le seed (révision 0)', async () => {
   const raw = await readFile(new URL('../ds/tokens.css', import.meta.url), 'utf8');
   const { renderCss } = await import('../app/server/code-target.js');

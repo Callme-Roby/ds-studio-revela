@@ -5,3 +5,5 @@
 DS-Studio.app/Contents/MacOS/* text eol=lf
 *.cmd text eol=crlf
 *.vbs text eol=crlf
+# Fichier généré : son empreinte porte sur des fins de ligne LF.
+ds/tokens.css text eol=lf
