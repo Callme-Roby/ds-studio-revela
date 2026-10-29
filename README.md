@@ -16,6 +16,14 @@ DS-Studio (http://127.0.0.1:4310)
 **Tout fonctionne sans compte** : mode manuel, aperçu, contrôles, historique et
 écriture du code. Claude (IA) et Figma sont des options, chacune avec son compte.
 
+## Démarrer en un double-clic
+
+Après le clone, double-cliquez sur **`Lancer DS-Studio.cmd`** (Windows) ou
+**`Lancer DS-Studio.command`** (macOS). Le raccourci installe les dépendances
+au premier lancement, recompile si le code a changé, démarre le serveur et ouvre
+le navigateur. Gardez sa fenêtre ouverte ; **Ctrl+C** arrête DS-Studio. Si
+DS-Studio tourne déjà, il ouvre simplement le navigateur.
+
 ## Démarrer en 3 commandes
 
 Prérequis : **Node.js 22.12+** ([téléchargement](https://nodejs.org/en/download))
