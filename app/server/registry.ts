@@ -134,7 +134,7 @@ export class ProjectRegistry {
       const root = path.resolve(input.root);
       if (!path.isAbsolute(input.root))
         throw new StudioError(
-          'Chemin absolu attendu (ex. C:\\Users\\…\\mon-projet).',
+          'Chemin absolu attendu (ex. D:\\projets\\mon-projet).',
         );
       const stat = await fs.lstat(root).catch(() => null);
       if (!stat?.isDirectory() || stat.isSymbolicLink())

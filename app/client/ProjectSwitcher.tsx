@@ -208,7 +208,7 @@ function AddProject({
           <input
             value={root}
             onChange={(e) => setRoot(e.target.value)}
-            placeholder="C:\Users\…\mon-projet"
+            placeholder="D:\projets\mon-projet"
             required
           />
         </label>
