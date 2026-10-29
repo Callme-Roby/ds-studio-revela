@@ -5,6 +5,19 @@ const rgb = (hex: string) =>
   `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 const state = async (page: Page) =>
   (await page.request.get('/api/state')).json();
+// Réglages de l'atelier, dont l'assistant de démarrage (ouvert au premier lancement).
+async function setSettings(page: Page, data: Record<string, unknown>) {
+  const { csrf } = await (await page.request.get('/api/bootstrap')).json();
+  await page.request.post('/api/settings', {
+    headers: { 'X-DS-Studio': csrf, Origin: 'http://127.0.0.1:4318' },
+    data,
+  });
+}
+// Les parcours supposent un atelier déjà démarré, sauf le test de l'assistant.
+test.beforeEach(async ({ page }, info) => {
+  if (!info.title.startsWith('démarrage'))
+    await setSettings(page, { onboarded: true });
+});
 // Bouton principal du catalogue (fiche Button, tokens validés).
 const catalogButton = (page: Page) =>
   page
@@ -530,14 +543,19 @@ test('export Figma : capture des composants et écrans, couleurs rattachées aux
   ).toBe(200);
 });
 
-test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', async ({ page }) => {
+test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', async ({
+  page,
+}) => {
   const { mkdtemp, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
   const folder = await mkdtemp(path.join(tmpdir(), 'ds-e2e-projet-'));
   try {
     await page.goto('/#/apercu');
-    await page.getByRole('button', { name: /Revela/ }).first().click();
+    await page
+      .getByRole('button', { name: /Revela/ })
+      .first()
+      .click();
     await page.getByRole('menuitem', { name: /Ajouter un projet/ }).click();
     const dialog = page.getByRole('dialog', { name: 'Ajouter un projet' });
     await dialog.getByLabel('Nom du projet').fill('Site vitrine');
@@ -545,24 +563,35 @@ test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', 
     await dialog.getByRole('button', { name: 'Ajouter le projet' }).click();
     await expect(dialog.getByRole('alert')).toContainText('absolu');
     await dialog.getByLabel(/Dossier du projet/).fill(folder);
-    await dialog.getByLabel('Fichier Figma').fill('https://www.figma.com/design/abc/Site');
+    await dialog
+      .getByLabel('Fichier Figma')
+      .fill('https://www.figma.com/design/abc/Site');
     await dialog.getByRole('checkbox').check();
     await dialog.getByRole('button', { name: 'Ajouter le projet' }).click();
     await expect(dialog).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Site vitrine', level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Site vitrine', level: 1 }),
+    ).toBeVisible();
     await expect(page.getByText('Dossier présent sur ce poste.')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Ouvrir dans Figma' })).toHaveAttribute(
-      'href',
-      'https://www.figma.com/design/abc/Site',
-    );
-    await expect(page.getByRole('button', { name: /Assistant IA/ })).toHaveCount(0);
-    await page.getByRole('button', { name: /Site vitrine/ }).first().click();
+    await expect(
+      page.getByRole('link', { name: 'Ouvrir dans Figma' }),
+    ).toHaveAttribute('href', 'https://www.figma.com/design/abc/Site');
+    await expect(
+      page.getByRole('button', { name: /Assistant IA/ }),
+    ).toHaveCount(0);
+    await page
+      .getByRole('button', { name: /Site vitrine/ })
+      .first()
+      .click();
     await page.getByRole('menuitemradio', { name: /Revela/ }).click();
-    await expect(page.getByRole('heading', { name: 'Aperçu de Revela', level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Aperçu de Revela', level: 1 }),
+    ).toBeVisible();
     // Nettoyage : projet retiré, Revela reste.
     await page.request.post('/api/projects/remove', {
       headers: {
-        'X-DS-Studio': (await (await page.request.get('/api/bootstrap')).json()).csrf,
+        'X-DS-Studio': (await (await page.request.get('/api/bootstrap')).json())
+          .csrf,
         Origin: new URL(page.url()).origin,
       },
       data: { id: 'site-vitrine' },
@@ -575,11 +604,13 @@ test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', 
 test('projet externe : fichiers de tokens, variable modifiée sur place, annulée depuis l’historique', async ({
   page,
 }) => {
-  const { mkdtemp, mkdir, readFile, rm, writeFile } = await import('node:fs/promises');
+  const { mkdtemp, mkdir, readFile, rm, writeFile } =
+    await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
   const folder = await mkdtemp(path.join(tmpdir(), 'ds-e2e-tokens-'));
-  const css = ':root {\n  --brand: #3355FF;\n  --space-md: 16px;\n}\n.dark { --brand: #99AAFF; }\n';
+  const css =
+    ':root {\n  --brand: #3355FF;\n  --space-md: 16px;\n}\n.dark { --brand: #99AAFF; }\n';
   await mkdir(path.join(folder, 'src'));
   await writeFile(path.join(folder, 'src', 'tokens.css'), css);
   const boot = await (await page.request.get('/api/bootstrap')).json();
@@ -587,17 +618,26 @@ test('projet externe : fichiers de tokens, variable modifiée sur place, annulé
   try {
     await page.request.post('/api/projects/add', {
       headers,
-      data: { name: 'Vitrine', root: folder, source: { type: 'local', url: '' }, figma: { plugin: false, fileUrl: '' } },
+      data: {
+        name: 'Vitrine',
+        root: folder,
+        source: { type: 'local', url: '' },
+        figma: { plugin: false, fileUrl: '' },
+      },
     });
     await page.goto('/#/apercu');
     // Chemin saisi à la Windows : DS-Studio le normalise en src/tokens.css.
-    await page.getByLabel('Fichier de tokens à ajouter').fill(String.raw`src\tokens.css`);
+    await page
+      .getByLabel('Fichier de tokens à ajouter')
+      .fill(String.raw`src\tokens.css`);
     await page
       .locator('form')
       .filter({ has: page.getByLabel('Fichier de tokens à ajouter') })
       .getByRole('button', { name: 'Ajouter' })
       .click();
-    await expect(page.getByText('2 token(s), 1 hors :root ignoré(s)')).toBeVisible();
+    await expect(
+      page.getByText('2 token(s), 1 hors :root ignoré(s)'),
+    ).toBeVisible();
     await page.getByRole('link', { name: /Variables/ }).click();
     await page.getByRole('button', { name: 'Sélectionner brand' }).click();
     await page.getByLabel('Valeur du token').fill('#E5484D');
@@ -605,27 +645,46 @@ test('projet externe : fichiers de tokens, variable modifiée sur place, annulé
     const dialog = page.getByRole('dialog', { name: 'Valider le changement' });
     await expect(dialog).toContainText('#3355FF');
     await expect(dialog).toContainText('#E5484D');
-    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(css);
-    await dialog.getByRole('button', { name: 'Valider et écrire dans le projet' }).click();
-    await expect(page.getByText(/Révision t1 écrite dans le projet/)).toBeVisible();
-    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(css.replace('#3355FF', '#E5484D'));
+    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(
+      css,
+    );
+    await dialog
+      .getByRole('button', { name: 'Valider et écrire dans le projet' })
+      .click();
+    await expect(
+      page.getByText(/Révision t1 écrite dans le projet/),
+    ).toBeVisible();
+    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(
+      css.replace('#3355FF', '#E5484D'),
+    );
     await page.getByRole('link', { name: /Historique/ }).click();
     await page.getByRole('button', { name: 'Annuler t1' }).click();
-    await dialog.getByRole('button', { name: 'Valider et écrire dans le projet' }).click();
+    await dialog
+      .getByRole('button', { name: 'Valider et écrire dans le projet' })
+      .click();
     await expect(page.getByText('t2 · undo', { exact: false })).toBeVisible();
-    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(css);
+    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(
+      css,
+    );
   } finally {
-    await page.request.post('/api/projects/remove', { headers, data: { id: 'vitrine' } });
+    await page.request.post('/api/projects/remove', {
+      headers,
+      data: { id: 'vitrine' },
+    });
     await rm(folder, { recursive: true, force: true });
   }
 });
 
-test('projet externe : composant modifié, commit local, envoi au clic vers le dépôt distant', async ({ page }) => {
+test('projet externe : composant modifié, commit local, envoi au clic vers le dépôt distant', async ({
+  page,
+}) => {
   const { execFileSync } = await import('node:child_process');
-  const { mkdtemp, mkdir, readFile, rm, writeFile } = await import('node:fs/promises');
+  const { mkdtemp, mkdir, readFile, rm, writeFile } =
+    await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
-  const g = (cwd: string, ...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).trim();
+  const g = (cwd: string, ...a: string[]) =>
+    execFileSync('git', a, { cwd, encoding: 'utf8' }).trim();
   const dir = await mkdtemp(path.join(tmpdir(), 'ds-e2e-git-'));
   const origin = path.join(dir, 'origin.git');
   const work = path.join(dir, 'app');
@@ -635,7 +694,10 @@ test('projet externe : composant modifié, commit local, envoi au clic vers le d
   g(work, 'config', 'user.email', 'e2e@example.invalid');
   g(work, 'config', 'user.name', 'E2E');
   g(work, 'config', 'core.autocrlf', 'false');
-  await writeFile(path.join(work, 'src', 'ui', 'Card.css'), '.card {\n  padding: 8px;\n}\n');
+  await writeFile(
+    path.join(work, 'src', 'ui', 'Card.css'),
+    '.card {\n  padding: 8px;\n}\n',
+  );
   g(work, 'add', '-A');
   g(work, 'commit', '-qm', 'base');
   g(work, 'remote', 'add', 'origin', origin);
@@ -645,7 +707,12 @@ test('projet externe : composant modifié, commit local, envoi au clic vers le d
   try {
     await page.request.post('/api/projects/add', {
       headers,
-      data: { name: 'App', root: work, source: { type: 'local', url: '' }, figma: { plugin: false, fileUrl: '' } },
+      data: {
+        name: 'App',
+        root: work,
+        source: { type: 'local', url: '' },
+        figma: { plugin: false, fileUrl: '' },
+      },
     });
     await page.goto('/#/apercu');
     await expect(page.getByText('0 commit(s) à pousser')).toBeVisible();
@@ -655,26 +722,136 @@ test('projet externe : composant modifié, commit local, envoi au clic vers le d
       .filter({ has: page.getByLabel('Dossier de composants à ajouter') })
       .getByRole('button', { name: 'Ajouter' })
       .click();
-    await expect(page.locator('.usage-list').filter({ hasText: 'src/ui' })).toBeVisible();
+    await expect(
+      page.locator('.usage-list').filter({ hasText: 'src/ui' }),
+    ).toBeVisible();
     await page.getByRole('link', { name: /Composants/ }).click();
     const editor = page.getByLabel('Code de src/ui/Card.css');
     await editor.fill('.card {\n  padding: 16px;\n}\n');
     await page.getByRole('button', { name: 'Proposer ce changement' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Valider le changement de code' });
+    const dialog = page.getByRole('dialog', {
+      name: 'Valider le changement de code',
+    });
     await expect(dialog).toContainText('Rien n’est encore écrit');
-    expect(await readFile(path.join(work, 'src', 'ui', 'Card.css'), 'utf8')).toContain('8px');
-    await dialog.getByRole('button', { name: 'Valider et écrire dans App' }).click();
-    await expect(page.getByText(/Révision de code c1|Révision c1 écrite dans le projet/)).toBeVisible();
-    expect(await readFile(path.join(work, 'src', 'ui', 'Card.css'), 'utf8')).toContain('16px');
+    expect(
+      await readFile(path.join(work, 'src', 'ui', 'Card.css'), 'utf8'),
+    ).toContain('8px');
+    await dialog
+      .getByRole('button', { name: 'Valider et écrire dans App' })
+      .click();
+    await expect(
+      page.getByText(/Révision de code c1|Révision c1 écrite dans le projet/),
+    ).toBeVisible();
+    expect(
+      await readFile(path.join(work, 'src', 'ui', 'Card.css'), 'utf8'),
+    ).toContain('16px');
     expect(g(work, 'log', '-1', '--format=%s')).toMatch(/^DS c1/);
     await page.getByRole('link', { name: /Vue d’ensemble/ }).click();
     await expect(page.getByText('1 commit(s) à pousser')).toBeVisible();
     page.once('dialog', (d) => void d.accept());
     await page.getByRole('button', { name: 'Pousser 1 commit(s)' }).click();
-    await expect(page.getByText('Commits poussés vers le dépôt distant.')).toBeVisible();
-    expect(g(dir, '--git-dir', origin, 'log', '-1', '--format=%s')).toMatch(/^DS c1/);
+    await expect(
+      page.getByText('Commits poussés vers le dépôt distant.'),
+    ).toBeVisible();
+    expect(g(dir, '--git-dir', origin, 'log', '-1', '--format=%s')).toMatch(
+      /^DS c1/,
+    );
   } finally {
-    await page.request.post('/api/projects/remove', { headers, data: { id: 'app' } });
+    await page.request.post('/api/projects/remove', {
+      headers,
+      data: { id: 'app' },
+    });
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('démarrage : brancher un dossier local, détection cochée, IA choisie, atelier prêt', async ({
+  page,
+}) => {
+  const { mkdtemp, mkdir, rm, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-e2e-onb-'));
+  await mkdir(path.join(folder, 'src', 'theme'), { recursive: true });
+  await mkdir(path.join(folder, 'src', 'components', 'Card'), {
+    recursive: true,
+  });
+  await mkdir(path.join(folder, 'node_modules', 'lib', 'components'), {
+    recursive: true,
+  });
+  await writeFile(
+    path.join(folder, 'src', 'theme', 'variables.css'),
+    ':root {\n  --brand: #123456;\n  --gap: 8px;\n}\n',
+  );
+  await writeFile(
+    path.join(folder, 'src', 'components', 'Card', 'Card.tsx'),
+    'export const Card = () => null;\n',
+  );
+  await writeFile(
+    path.join(folder, 'node_modules', 'lib', 'components', 'X.tsx'),
+    'x',
+  );
+  await writeFile(
+    path.join(folder, 'package.json'),
+    '{"scripts":{"dev":"vite"}}',
+  );
+  await setSettings(page, { onboarded: false, agent: 'claude' });
+  const { csrf } = await (await page.request.get('/api/bootstrap')).json();
+  const headers = { 'X-DS-Studio': csrf, Origin: 'http://127.0.0.1:4318' };
+  try {
+    await page.goto('/#/apercu');
+    const wizard = page.getByRole('dialog', {
+      name: 'Bienvenue dans DS-Studio',
+    });
+    await expect(wizard).toBeVisible();
+    await wizard.getByRole('button', { name: /Brancher mon projet/ }).click();
+    await wizard.getByLabel('Nom du projet').fill('Boutique');
+    await wizard.getByLabel(/Dossier du projet/).fill(folder);
+    await wizard.getByRole('button', { name: 'Continuer' }).click();
+    await expect(wizard.getByText('src/theme/variables.css')).toBeVisible();
+    await expect(
+      wizard.getByText('src/components', { exact: true }),
+    ).toBeVisible();
+    await expect(wizard.getByText('node_modules')).toHaveCount(0);
+    await expect(wizard.getByText('npm run dev')).toBeVisible();
+    await wizard
+      .getByRole('button', { name: 'Enregistrer et continuer' })
+      .click();
+    await wizard.getByRole('radio', { name: /Sans IA/ }).check();
+    await wizard.getByRole('button', { name: 'Continuer' }).click();
+    await expect(
+      wizard.getByText('1 fichier(s) de tokens, 1 dossier(s) de composants'),
+    ).toBeVisible();
+    await wizard.getByRole('button', { name: 'Ouvrir le projet' }).click();
+    await expect(wizard).not.toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Boutique', level: 1 }),
+    ).toBeVisible();
+    const settings = await (await page.request.get('/api/settings')).json();
+    expect(settings).toEqual({ onboarded: true, agent: 'none' });
+    await page.getByRole('link', { name: /Variables/ }).click();
+    await expect(
+      page.getByRole('button', { name: 'Sélectionner brand' }),
+    ).toBeVisible();
+    // Ne se rouvre pas au rechargement ; reste accessible depuis le menu des projets.
+    await page.reload();
+    await expect(wizard).not.toBeVisible();
+    await page
+      .getByRole('button', { name: /Boutique/ })
+      .first()
+      .click();
+    await page
+      .getByRole('menuitem', { name: /Assistant de démarrage/ })
+      .click();
+    await expect(wizard).toBeVisible();
+    await wizard.getByRole('button', { name: 'Passer pour l’instant' }).click();
+    await expect(wizard).not.toBeVisible();
+  } finally {
+    await page.request.post('/api/projects/remove', {
+      headers,
+      data: { id: 'boutique' },
+    });
+    await setSettings(page, { onboarded: true, agent: 'claude' });
+    await rm(folder, { recursive: true, force: true });
   }
 });

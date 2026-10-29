@@ -353,7 +353,19 @@ test(
           const { chromium } = await import('@playwright/test');
           browser = await chromium.launch();
           const page = await browser.newPage();
-          await page.goto(`http://127.0.0.1:${port}/#/variables`);
+          // Données vierges : l'assistant de démarrage est marqué comme fait.
+          const atelier = `http://127.0.0.1:${port}`;
+          const { csrf } = await (await fetch(`${atelier}/api/bootstrap`)).json();
+          await fetch(`${atelier}/api/settings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-DS-Studio': csrf,
+              Origin: atelier,
+            },
+            body: JSON.stringify({ onboarded: true }),
+          });
+          await page.goto(`${atelier}/#/variables`);
           await page.getByLabel('Valeur du token').fill('#224477');
           await action('restart');
           await page

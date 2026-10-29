@@ -894,3 +894,162 @@ dialog.add-project legend {
   color: var(--ui-text);
   font-family: var(--ui-font-mono);
 }
+
+/* Assistant de démarrage. */
+dialog.onboarding {
+  width: min(720px, calc(100vw - 32px));
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+}
+.onboarding-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.onboarding-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.onboarding-head p {
+  margin: 2px 0 0;
+}
+.onboarding-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 12.5px;
+  color: var(--ui-text-subtle);
+}
+.onboarding-steps li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.onboarding-steps span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--ui-border-control);
+  font-size: 11px;
+}
+.onboarding-steps li[aria-current='step'] {
+  color: var(--ui-text);
+  font-weight: 600;
+}
+.onboarding-steps li[aria-current='step'] span {
+  background: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+  border-color: transparent;
+}
+.onboarding-steps li.done span {
+  background: var(--ui-surface-active);
+  color: var(--ui-success);
+}
+.onboarding-body {
+  padding: 20px 24px 24px;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+.onboarding-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.choice {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  text-align: left;
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-raised);
+}
+.choice strong {
+  font-size: 15px;
+}
+.choice span {
+  color: var(--ui-text-muted);
+  font-weight: 400;
+}
+.choice:hover {
+  border-color: var(--ui-text-muted);
+}
+.agent-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.agent-choice {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--ui-border-control);
+  border-radius: var(--ui-radius);
+  cursor: pointer;
+}
+.agent-choice input {
+  justify-self: start;
+  accent-color: var(--ui-primary-bg);
+}
+.agent-choice.selected {
+  border-color: var(--ui-text);
+  background: var(--ui-surface-raised);
+}
+.ok-text {
+  color: var(--ui-success);
+}
+.onboarding-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.onboarding-summary li {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+}
+.onboarding-summary strong {
+  color: var(--ui-text-muted);
+  font-weight: 500;
+}
+.onboarding-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 18px;
+}
+.onboarding fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+@media (max-width: 640px) {
+  .onboarding-choices,
+  .agent-choices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cases à cocher dans un champ : la case garde sa taille, le texte suit. */
+.field .checks-ack {
+  align-items: center;
+  font-weight: 500;
+}
+.field .checks-ack input {
+  width: auto;
+  flex: none;
+}

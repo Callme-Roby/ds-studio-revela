@@ -15,11 +15,16 @@ export default function Assistant({
   revision,
   onTokenProposal,
   onCodeProposal,
+  defaultAgent = 'claude',
+  onConnect,
 }: {
   agents: Agent[];
   revision: number;
   onTokenProposal: (p: Proposal) => void;
   onCodeProposal: (p: CodeProposal) => void;
+  // IA choisie dans l'assistant de démarrage ; « none » invite à en brancher une.
+  defaultAgent?: 'claude' | 'codex' | 'none';
+  onConnect?: () => void;
 }) {
   const [open, setOpen] = useState(() => {
     try {
@@ -29,7 +34,12 @@ export default function Assistant({
     }
   });
   const [scope, setScope] = useState<'variables' | 'code'>('variables');
-  const [agent, setAgent] = useState('claude');
+  const [agent, setAgent] = useState(
+    defaultAgent === 'codex' ? 'codex' : 'claude',
+  );
+  useEffect(() => {
+    if (defaultAgent !== 'none') setAgent(defaultAgent);
+  }, [defaultAgent]);
   const [chat, setChat] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [thinking, setThinking] = useState(false);
@@ -152,6 +162,19 @@ export default function Assistant({
           </label>
         )}
       </div>
+      {(defaultAgent === 'none' ||
+        (agents.length > 0 && !selected?.available)) && (
+        <p className="notice small">
+          {defaultAgent === 'none'
+            ? 'Aucune IA branchée : tout fonctionne à la main.'
+            : `${name} n’est pas connecté.`}{' '}
+          {onConnect && (
+            <button className="link-button" onClick={onConnect}>
+              Brancher une IA
+            </button>
+          )}
+        </p>
+      )}
       <p className="muted small">
         {selected?.detail ?? 'Détection du CLI…'}{' '}
         {scope === 'variables'

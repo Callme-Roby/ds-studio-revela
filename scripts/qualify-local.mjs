@@ -120,6 +120,8 @@ try {
       const page = await browser.newPage({
         viewport: { width: 1600, height: 1000 },
       });
+      // Données vierges : l'assistant de démarrage est marqué comme fait.
+      await (await session())('settings', { onboarded: true });
       await page.goto(origin + '/#/variables');
       await page.getByRole('button', { name: /Assistant IA/ }).click();
       const assistant = page.getByRole('complementary', { name: 'Assistant IA' });

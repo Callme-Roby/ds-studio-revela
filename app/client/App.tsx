@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ProjectBrief from './ProjectBrief.js';
 import Assistant from './Assistant.js';
+import Onboarding from './Onboarding.js';
 import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
 import ExternalProjectView from './views/ExternalProjectView.js';
 import ExternalComponentsView from './views/ExternalComponentsView.js';
@@ -114,6 +115,11 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [variable, setVariable] = useState<TokenKey>();
   const [projects, setProjects] = useState<Projects>();
+  const [settings, setSettings] = useState<{
+    onboarded: boolean;
+    agent: 'claude' | 'codex' | 'none';
+  }>();
+  const [onboarding, setOnboarding] = useState(false);
   const [spec, setSpec] = useState<SpecStatus | null>();
   const [specBusy, setSpecBusy] = useState(false);
   // Export Figma (composants et écrans) régénéré en arrière-plan quand il ne
@@ -144,6 +150,14 @@ export default function App() {
     void refreshCode();
     void refreshCodeHistory();
     void refreshSpec();
+    request<{ onboarded: boolean; agent: 'claude' | 'codex' | 'none' }>(
+      'settings',
+    )
+      .then((s) => {
+        setSettings(s);
+        if (!s.onboarded) setOnboarding(true);
+      })
+      .catch(() => {});
     request<Projects>('projects')
       .then(setProjects)
       .catch(() => setProjects(undefined));
@@ -320,7 +334,11 @@ export default function App() {
       </a>
       <aside className="sidebar">
         {projects ? (
-          <ProjectSwitcher data={projects} onChange={setProjects} />
+          <ProjectSwitcher
+            data={projects}
+            onChange={setProjects}
+            onOnboarding={() => setOnboarding(true)}
+          />
         ) : (
           <div className="wordmark">
             <span className="brand-symbol">ds.</span>
@@ -525,6 +543,21 @@ export default function App() {
           revision={state.revision}
           onTokenProposal={setProposal}
           onCodeProposal={(p) => setCodeProposal({ p })}
+          defaultAgent={settings?.agent}
+          onConnect={() => setOnboarding(true)}
+        />
+      )}
+      {onboarding && (
+        <Onboarding
+          onProjects={setProjects}
+          onDone={() => {
+            setOnboarding(false);
+            request<{ onboarded: boolean; agent: 'claude' | 'codex' | 'none' }>(
+              'settings',
+            )
+              .then(setSettings)
+              .catch(() => {});
+          }}
         />
       )}
       <TokenDiffDialog

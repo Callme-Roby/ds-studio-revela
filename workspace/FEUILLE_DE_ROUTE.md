@@ -70,7 +70,7 @@ Choix de l’étudiant :
 | D2 | Tokens génériques | Schéma de tokens dynamique par projet, adaptateurs lecture/écriture sur place (CSS, SCSS, JSON), diff et historique inchangés ; contrôles génériques (contraste des paires déclarées) — TESTED (unitaires, API, navigateur) ; contrôles : syntaxe des valeurs seulement, paires de contraste reportées à D5 |
 | D3 | Code et Git | Composants = fichiers des dossiers déclarés ; clone GitHub, commits locaux, **pousser au clic** — TESTED (unitaires avec dépôt distant local, API, navigateur jusqu’à l’envoi) ; clonage réel depuis GitHub non essayé |
 | D4 | Aperçu | Iframe du serveur de dev, largeurs réelles, rechargement après validation |
-| D5 | Déclaration par l’IA | Formulaire + analyse Claude en lecture seule → profil proposé, relu et validé ; liens collés dans l’assistant |
+| D5 | Déclaration par l’IA | Formulaire + analyse Claude en lecture seule → profil proposé, relu et validé ; liens collés dans l’assistant — en partie : assistant de démarrage (projet, détection heuristique des tokens et composants, choix de l’IA) TESTED ; analyse par Claude à faire |
 | D6 | Figma par projet | Collection « <Projet> · DS-Studio », case « plugin Figma » ; composants/écrans Figma seulement là où DS-Studio sait rendre |
 
 ## Pourquoi cet ordre

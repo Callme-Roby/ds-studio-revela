@@ -8,9 +8,11 @@ export type Projects = { active: string; projects: ProjectView[] };
 export default function ProjectSwitcher({
   data,
   onChange,
+  onOnboarding,
 }: {
   data: Projects;
   onChange: (next: Projects) => void;
+  onOnboarding?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -78,6 +80,18 @@ export default function ProjectSwitcher({
           >
             + Ajouter un projet…
           </button>
+          {onOnboarding && (
+            <button
+              role="menuitem"
+              className="project-add"
+              onClick={() => {
+                setOpen(false);
+                onOnboarding();
+              }}
+            >
+              Assistant de démarrage…
+            </button>
+          )}
         </div>
       )}
       {adding && (

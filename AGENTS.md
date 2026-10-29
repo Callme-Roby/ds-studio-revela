@@ -23,6 +23,8 @@ Lire [START_HERE.md](START_HERE.md). Le contexte appartient à l’étudiant.
   projet externe (CSS, SCSS, JSON) lus et réécrits sur place, propositions, journal.
 - `app/server/project-git.ts` : clonage GitHub, état, récupération et envoi sur
   clic (jamais de force-push) ; composants externes via `ComponentStore` (scope).
+- `app/server/settings.ts` (démarrage fait, IA choisie), `app/server/detect.ts`
+  (détection en lecture seule) ; `app/client/Onboarding.tsx` : assistant de démarrage.
 - `connectors/agents/claude-code.ts` : agent de code sur une copie temporaire de
   `ds/`, outils fichiers seulement ; ses différences deviennent une proposition.
 - `connectors/agents/` : Codex et Claude Code (profil sans outils) qualifiés, Gemini indisponible.

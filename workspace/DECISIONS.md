@@ -468,3 +468,35 @@ dans le dépôt distant). 94 tests unitaires et API, 18 navigateur, 20 lanceur.
 **Limites.** Clonage depuis le vrai GitHub non essayé (pas de réseau en test) ;
 pas de « git pull » dans DS-Studio (à faire dans le terminal) ; éditeur de code
 simple.
+
+## 2026-10-29 — Assistant de démarrage (projet + IA)
+
+**Demande de l’étudiant.** Un onboarding pour brancher un projet (dossier
+local ou dépôt) et brancher une IA pour l’assistant.
+
+**Choix.** Assistant au premier lancement (réglage `onboarded` dans
+`.ds-studio/settings.json`, privé), relançable depuis le menu des projets :
+projet (local ou clonage GitHub) → détection → IA → récapitulatif. La détection
+est heuristique et en lecture seule (profondeur 6, 6 000 entrées au plus,
+node_modules/dist/.git et dossiers cachés ignorés) : fichiers dont nos propres
+lecteurs trouvent des variables, dossiers nommés components/ui/atoms…, scripts
+dev/start/storybook du package.json (affichés, jamais lancés). L’IA reste un
+CLI officiel connecté par l’étudiant (Claude Code ou Codex) : pas de clé d’API
+saisie ni stockée par DS-Studio ; l’assistant indique les commandes
+d’installation et de connexion, vérifie l’état, et l’assistant flottant utilise
+l’IA choisie (« Sans IA » : invitation à en brancher une).
+
+**Incidents.** Un dossier `components` ne contenant que des sous-dossiers
+n’était pas proposé (comptage limité aux fichiers directs) : comptage du
+sous-arbre. Ordre des détections dépendant du disque : départage par chemin.
+L’assistant modal bloquait les tests partant de données vierges (e2e, lanceur,
+qualification Codex) : démarrage marqué fait dans ces tests, test dédié pour
+l’assistant.
+
+**Preuves.** Détection et réglages (2 tests unitaires), parcours navigateur
+complet (détection, node_modules ignoré, « Sans IA », réouverture depuis le
+menu), vérifié à l’écran (Claude Code détecté connecté sur ce poste).
+96 tests unitaires et API, 19 navigateur, 20 lanceur, qualification.
+
+**Limites.** L’analyse du dépôt par Claude (paires de contraste, conventions)
+reste à faire (D5) ; pas de saisie de clé d’API par choix de sécurité.

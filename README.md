@@ -89,6 +89,23 @@ de code écrit dans `ds/src`, puis recompile l’interface (en `npm start`) ; en
 Un problème de contrôle introduit par une proposition exige une **case d’accord
 explicite** ; le serveur refuse la validation sans elle.
 
+## Premier lancement : l’assistant de démarrage
+
+Au premier lancement, un assistant propose :
+
+1. **Brancher mon projet** (dossier local ou dépôt GitHub cloné par DS-Studio)
+   ou **Explorer la démo Revela** ;
+2. **Tokens et composants** : DS-Studio cherche, sans rien modifier ni exécuter,
+   les fichiers de variables (CSS, SCSS, JSON) et les dossiers de composants
+   probables ; vous cochez ce que vous gardez ;
+3. **Assistant IA** : Claude Code, Codex ou sans IA ; l’état de connexion est
+   vérifié et, si besoin, les commandes pour installer et connecter le CLI sont
+   affichées (DS-Studio ne voit jamais vos identifiants) ;
+4. **Récapitulatif**, puis ouverture du projet.
+
+Il se relance depuis le menu des projets (**Assistant de démarrage…**) ; tout
+reste modifiable ensuite dans la vue d’ensemble du projet.
+
 ## Ajouter un autre projet
 
 En haut de la barre latérale : **Revela ▾ → Ajouter un projet…** Indiquez le nom,

@@ -25,6 +25,8 @@ import { figmaSpecSchema, type FigmaSpec } from '../shared/figma-spec.js';
 import { atomicWrite, readPrivate } from './files.js';
 import { ProjectRegistry } from './registry.js';
 import { ExternalTokens } from './external-tokens.js';
+import { SettingsStore, settingsSchema } from './settings.js';
+import { detectProject } from './detect.js';
 import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
 import { externalPath, externalProposeSchema } from './components.js';
 import {
@@ -90,6 +92,7 @@ export async function createStudioServer(options: {
     .then((raw) => figmaSpecSchema.parse(JSON.parse(raw)))
     .catch(() => null);
   const projects = new ProjectRegistry(store.directory, root);
+  const settings = new SettingsStore(store.directory);
   const externalStores = new Map<
     string,
     { key: string; store: ComponentStore }
@@ -234,6 +237,16 @@ export async function createStudioServer(options: {
           }
           if (url.pathname === '/api/projects')
             return send(200, await projects.list());
+          if (url.pathname === '/api/settings')
+            return send(200, await settings.read());
+          const detect = url.pathname.match(
+            /^\/api\/projects\/([a-z0-9-]{1,40})\/detect$/,
+          );
+          if (detect)
+            return send(
+              200,
+              await detectProject((await projects.project(detect[1])).root),
+            );
           const projectGet = url.pathname.match(
             /^\/api\/projects\/([a-z0-9-]{1,40})\/(git|components|components\/file)$/,
           );
@@ -504,6 +517,10 @@ export async function createStudioServer(options: {
             return send(200, { ...entry, git });
           }
           return send(200, await service.undo(b.id));
+        }
+        if (url.pathname === '/api/settings') {
+          const b = settingsSchema.partial().strict().parse(body);
+          return send(200, await settings.update(b));
         }
         if (url.pathname === '/api/projects/clone') {
           const b = z
