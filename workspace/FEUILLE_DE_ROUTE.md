@@ -41,6 +41,38 @@ sans compte, Claude et Figma restent facultatifs.
 | B | Composants et IA | Nouvelle arborescence (barre latérale, Aperçu, catalogues Variables/Composants avec Aperçu/Code, Historique, assistant flottant) ; un fichier par composant ; propositions de code avec diff, aperçu compilé, validation, annulation, commit Git local ; agent Claude sur copie isolée de `ds/` | TESTED (unitaires, API, navigateur ; agent avec faux CLI), envoi réel de l’agent de code à qualifier |
 | C | Figma composants | Le plugin crée/actualise composants et pages à partir d’une description exportée par DS-Studio, liés aux variables | IMPLEMENTED (capture + plugin testés, API Figma simulée) ; essai dans Figma réel à faire |
 
+## Phase D : brancher d’autres projets (décidé le 2026-10-29)
+
+Cible : connecter n’importe quel projet (dossier local ou dépôt GitHub cloné par
+DS-Studio), avec ou sans plugin Figma, et le déclarer par un formulaire où l’IA
+propose la configuration ; le projet Revela intégré reste le projet par défaut.
+
+Choix de l’étudiant :
+- **N’importe quel projet, via l’IA** : Claude analyse le dépôt (lecture seule)
+  et propose un **profil** : où sont les tokens et dans quel format, où sont
+  les composants, URL du serveur de dev, fichier Figma. DS-Studio ne fait
+  qu’appliquer ce profil avec ses propres adaptateurs de lecture/écriture
+  (variables CSS, SCSS, JSON plat et DTCG, Tailwind en lecture) : aucun code
+  écrit par l’IA n’est exécuté. Un format non couvert est signalé, pas deviné.
+- **GitHub** : DS-Studio clone le dépôt dans un dossier choisi ; chaque
+  validation peut créer un commit local ; **pousser vers le vrai dépôt se fait
+  au clic** (état en avance/en retard affiché, jamais automatique).
+- **Aperçu** : le serveur de dev du projet (URL locale ou Storybook) dans
+  l’iframe, à largeur réelle ; DS-Studio ne lance aucune commande du projet,
+  il affiche celle à lancer.
+- **Déclaration** : formulaire (dossier ou URL GitHub, lien Figma, case
+  « plugin Figma ») + bouton « Laisser l’IA analyser » ; on peut aussi coller
+  les liens dans l’assistant flottant, qui ouvre le même formulaire prérempli.
+
+| # | Étape | Contenu |
+| - | ----- | ------- |
+| D1 | Projets | Liste de projets (`.ds-studio/projects.json`), un dossier d’état par projet, sélecteur dans la barre latérale ; Revela devient « projet intégré » |
+| D2 | Tokens génériques | Schéma de tokens dynamique par projet, adaptateurs lecture/écriture sur place (CSS, SCSS, JSON), diff et historique inchangés ; contrôles génériques (contraste des paires déclarées) |
+| D3 | Code et Git | Composants = fichiers des dossiers déclarés ; clone GitHub, commits locaux, **pousser au clic** |
+| D4 | Aperçu | Iframe du serveur de dev, largeurs réelles, rechargement après validation |
+| D5 | Déclaration par l’IA | Formulaire + analyse Claude en lecture seule → profil proposé, relu et validé ; liens collés dans l’assistant |
+| D6 | Figma par projet | Collection « <Projet> · DS-Studio », case « plugin Figma » ; composants/écrans Figma seulement là où DS-Studio sait rendre |
+
 ## Pourquoi cet ordre
 
 L’IA et Figma travaillent sur les tokens : ils doivent d’abord exister sous leur
