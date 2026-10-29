@@ -73,8 +73,11 @@ export default function ComponentsView({
     )
       .then((r) => {
         if (!live) return;
-        setLoaded({ file, original: r.content });
-        setText(r.content ?? '');
+        // Une zone de texte ramène toujours les fins de ligne à LF : la
+        // comparaison se fait donc en LF, le serveur rétablit celles du fichier.
+        const content = r.content?.replace(/\r\n/g, '\n') ?? null;
+        setLoaded({ file, original: content });
+        setText(content ?? '');
       })
       .catch((e) => live && setError(e.message));
     return () => {

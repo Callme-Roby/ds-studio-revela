@@ -7,3 +7,5 @@ DS-Studio.app/Contents/MacOS/* text eol=lf
 *.vbs text eol=crlf
 # Fichier généré : son empreinte porte sur des fins de ligne LF.
 ds/tokens.css text eol=lf
+# Code du DS édité depuis le navigateur (LF) : mêmes fins de ligne partout.
+ds/src/** text eol=lf

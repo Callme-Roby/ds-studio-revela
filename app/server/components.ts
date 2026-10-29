@@ -144,13 +144,21 @@ export class ComponentStore {
         throw new StudioError(`Fichier en double : ${c.path}.`);
       seen.add(c.path);
       const before = await this.read(c.path);
-      if (before === c.content) continue;
+      // Fichier en CRLF (checkout Windows) : la proposition garde ses fins de
+      // ligne, au lieu de réécrire chaque ligne en LF.
+      const after =
+        before?.includes('\r\n') &&
+        c.content !== null &&
+        !c.content.includes('\r')
+          ? c.content.replace(/\n/g, '\r\n')
+          : c.content;
+      if (before === after) continue;
       base[c.path] = sha(before);
       files.push({
         path: c.path,
         before,
-        after: c.content,
-        ...stats(diffLines(before ?? '', c.content ?? '')),
+        after,
+        ...stats(diffLines(before ?? '', after ?? '')),
       });
     }
     if (!files.length)

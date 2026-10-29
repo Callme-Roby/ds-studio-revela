@@ -402,6 +402,11 @@ test('capacité de session périmée simulée sans rejeu ambigu', async ({
 test('composants : code d’un composant, diff, aperçu compilé, validation et annulation', async ({
   page,
 }) => {
+  const original = (
+    await (
+      await page.request.get('/api/components/file?path=components/Button.css')
+    ).json()
+  ).content;
   await page.goto('/#/composants/button');
   await expect(
     page.getByRole('heading', { name: 'Button', level: 2 }),
@@ -440,7 +445,8 @@ test('composants : code d’un composant, diff, aperçu compilé, validation et 
   const restored = await (
     await page.request.get('/api/components/file?path=components/Button.css')
   ).json();
-  expect(restored.content).toBe(css);
+  // Annulation exacte, fins de ligne du fichier comprises (CRLF sous Windows).
+  expect(restored.content).toBe(original);
 });
 
 test('assistant flottant repliable, sans compte IA requis', async ({

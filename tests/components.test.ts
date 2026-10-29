@@ -97,6 +97,30 @@ test('liste, proposition sans écriture, validation relue, journal, annulation',
   );
 });
 
+test('fins de ligne CRLF conservées : une ligne modifiée, pas tout le fichier', async (t) => {
+  const { store, ds } = await fixture(t);
+  const file = path.join(ds, 'src/components/Alert.css');
+  const lf = (await readFile(file, 'utf8')).replace(/\r\n/g, '\n');
+  await writeFile(file, lf.replace(/\n/g, '\r\n'));
+  const edited = lf.replace('var(--', 'var( --');
+  const p = await store.propose(
+    [{ path: 'components/Alert.css', content: edited }],
+    'manual',
+  );
+  assert.deepEqual([p.files[0].added, p.files[0].removed], [1, 1]);
+  await store.commit(p.id);
+  assert.equal(await readFile(file, 'utf8'), edited.replace(/\n/g, '\r\n'));
+  // Contenu identique au fichier, aux fins de ligne près : rien à proposer.
+  await assert.rejects(
+    () =>
+      store.propose(
+        [{ path: 'components/Alert.css', content: edited }],
+        'manual',
+      ),
+    /Aucun changement/,
+  );
+});
+
 test('conflit : fichier modifié entre proposition et validation, rien écrit', async (t) => {
   const { store, ds } = await fixture(t);
   const file = path.join(ds, 'src/components/Alert.tsx');
