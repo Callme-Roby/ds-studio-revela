@@ -9,7 +9,12 @@ export function Alert({
   children: ReactNode;
 }) {
   return (
-    <p className={`rv-alert ${tone}`} role="status">
+    <p
+      className={`rv-alert ${tone}`}
+      role="status"
+      data-ds="Alert"
+      data-ds-variant={`tone=${tone}`}
+    >
       {children}
     </p>
   );

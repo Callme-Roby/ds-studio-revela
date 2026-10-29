@@ -16,7 +16,7 @@ export function Slider({
 }) {
   const [value, setValue] = useState(initial);
   return (
-    <label className="rv-control">
+    <label className="rv-control" data-ds="Slider">
       <span className="rv-label">
         {label}
         <em>

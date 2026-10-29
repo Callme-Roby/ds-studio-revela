@@ -74,6 +74,10 @@
   #status {
     min-height: 18px;
   }
+  h2 {
+    font-size: 12px;
+    margin: 14px 0 4px;
+  }
 </style>
 <h1>Revela · DS-Studio</h1>
 <p>
@@ -94,6 +98,20 @@
   <input type="checkbox" id="overwrite" />
   <span id="ackText"></span>
 </label>
+<section id="specBox" hidden>
+  <h2>Composants et écrans</h2>
+  <p id="specText"></p>
+  <label class="row">
+    <input type="checkbox" id="build" />
+    Construire aussi les composants et les écrans (pages « Revela · Composants »
+    et « Revela · Écrans »)
+  </label>
+  <p class="warn" id="specNote">
+    Les composants et écrans générés sont reconstruits à chaque fois : une
+    retouche faite à l’intérieur sera remplacée. Vos instances ailleurs dans le
+    fichier suivent.
+  </p>
+</section>
 <div class="row">
   <button class="primary" id="apply" disabled>Appliquer à Figma</button>
   <button id="close">Fermer</button>
@@ -101,10 +119,39 @@
 <script>
   // Figma n'accepte qu'un nom de domaine dans devAllowedDomains, pas une IP.
   const DS = 'http://localhost:4310/api/figma/tokens';
+  const SPEC = 'http://localhost:4310/api/figma/spec';
   const $ = (id) => document.getElementById(id);
   let source = null;
   let current = null;
   let timer = null;
+  let spec = null;
+  // Export des composants et écrans : facultatif, lu avec les variables.
+  async function readSpec() {
+    spec = null;
+    try {
+      const r = await fetch(SPEC, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || r.status);
+      spec = body;
+    } catch (e) {
+      $('specText').textContent = `Pas d’export des composants : ${e.message}`;
+    }
+    $('specBox').hidden = false;
+    if (!spec) {
+      $('build').checked = false;
+      $('build').disabled = true;
+      return;
+    }
+    const variants = spec.components.reduce((n, c) => n + c.variants.length, 0);
+    const stale = source && spec.revision !== source.revision;
+    $('specText').innerHTML =
+      `${spec.components.length} composants (${variants} variantes) et ${spec.screens.length} écrans · révisions r${spec.revision} / c${spec.codeRevision}.` +
+      (stale
+        ? ` <span class="danger">Export périmé (variables en r${source.revision}) : ouvrez DS-Studio pour le régénérer, puis relisez.</span>`
+        : '');
+    $('build').disabled = !!stale;
+    $('build').checked = !stale;
+  }
   const status = (text, cls = '') => {
     $('status').textContent = text;
     $('status').className = cls;
@@ -125,6 +172,7 @@
       if (quiet && source && next.revision === source.revision) return;
       source = next;
       status(`DS-Studio : révision ${source.revision}.`);
+      await readSpec();
       parent.postMessage({ pluginMessage: { type: 'plan', source } }, '*');
     } catch (e) {
       status(
@@ -154,8 +202,22 @@
     }
   };
   $('overwrite').onchange = () => render(current);
+  $('build').onchange = () => render(current);
+  const variableWork = (msg) => {
+    const p = msg.plan;
+    const replaceable = p.conflicts.filter((c) => !c.reason.startsWith('type'));
+    return msg.key
+      ? p.create.length + p.update.length + ($('overwrite').checked ? replaceable.length : 0)
+      : 0;
+  };
+  const buildNext = () => {
+    status('Construction des composants et des écrans…');
+    parent.postMessage({ pluginMessage: { type: 'build', spec } }, '*');
+  };
   $('apply').onclick = () => {
     $('apply').disabled = true;
+    // Variables d'abord (les composants s'y lient), puis composants et écrans.
+    if (!variableWork(current)) return buildNext();
     status('Écriture puis relecture…');
     parent.postMessage(
       {
@@ -192,9 +254,17 @@
     const replaceable = p.conflicts.filter((c) => !c.reason.startsWith('type'));
     $('ack').hidden = !replaceable.length;
     $('ackText').textContent = `Remplacer ${replaceable.length} variable(s) modifiée(s) dans Figma par la valeur DS-Studio.`;
-    const work = p.create.length + p.update.length + ($('overwrite').checked ? replaceable.length : 0);
-    $('apply').disabled = !work || !msg.key;
-    $('apply').textContent = work ? `Appliquer ${work} changement(s) à Figma` : 'Appliquer à Figma';
+    const work = variableWork(msg);
+    const build = $('build').checked && !!spec;
+    $('apply').disabled = !work && !build;
+    $('apply').textContent =
+      work && build
+        ? `Appliquer ${work} variable(s), puis construire composants et écrans`
+        : work
+          ? `Appliquer ${work} changement(s) à Figma`
+          : build
+            ? 'Construire composants et écrans'
+            : 'Appliquer à Figma';
   }
   onmessage = (e) => {
     const msg = e.data.pluginMessage;
@@ -211,6 +281,14 @@
       );
       render({ plan: msg.readback, key: null });
       $('apply').disabled = true;
+      if (msg.synced && $('build').checked && spec) buildNext();
+    } else if (msg.type === 'built') {
+      status(
+        `${msg.components} composants et ${msg.screens} écrans construits : ${msg.nodes} nœuds, ${msg.instances} instances, ${msg.bound} liaisons aux variables.`,
+        'ok',
+      );
+      $('build').checked = false;
+      render({ plan: current.plan, key: null });
     } else if (msg.type === 'error') {
       status(msg.message, 'danger');
       if (current) render(current);

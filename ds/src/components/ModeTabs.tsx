@@ -14,7 +14,7 @@ export function ModeTabs({
   onMode: (m: Mode) => void;
 }) {
   return (
-    <nav aria-label="Modes de Revela" className="rv-modes">
+    <nav aria-label="Modes de Revela" className="rv-modes" data-ds="ModeTabs">
       {modes.map((m) => (
         <button
           key={m.id}

@@ -408,3 +408,36 @@ test('composants : propose, aperçu, valide, annule ; agent de code via diff ; p
   // Le vrai ds/ du dépôt n'a jamais été touché.
   assert.doesNotMatch(await readFile(path.join(root, 'ds/src/components/Button.css'), 'utf8'), /\/\* test \*\//);
 });
+
+test('export Figma : dépôt par l’atelier (CSRF), lecture par le plugin (origine null), rien d’autre', async (t) => {
+  const { origin, post } = await fixture(t);
+  assert.equal((await fetch(origin + '/api/figma/spec')).status, 404);
+  const spec = JSON.parse(
+    await readFile(path.join(root, 'tests/fixtures/figma-spec.json'), 'utf8'),
+  );
+  assert.equal((await post('figma/spec', { ...spec, version: 2 })).status, 400);
+  assert.equal((await post('figma/spec', spec, { 'X-DS-Studio': '' })).status, 403);
+  assert.equal((await post('figma/spec', spec)).status, 200);
+  const status = await (await fetch(origin + '/api/figma/spec/status')).json();
+  assert.deepEqual(
+    [status.components, status.variants, status.screens],
+    [11, 19, 3],
+  );
+  const plugin = await fetch(origin + '/api/figma/spec', {
+    headers: { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' },
+  });
+  assert.equal(plugin.status, 200);
+  assert.equal(plugin.headers.get('access-control-allow-origin'), 'null');
+  assert.equal((await plugin.json()).components.length, 11);
+  // Le plugin ne peut ni déposer un export ni lire le statut.
+  const forged = await fetch(origin + '/api/figma/spec', {
+    method: 'POST',
+    headers: { Origin: 'null', 'Content-Type': 'application/json' },
+    body: JSON.stringify(spec),
+  });
+  assert.equal(forged.status, 403);
+  assert.equal(
+    (await fetch(origin + '/api/figma/spec/status', { headers: { Origin: 'null' } })).status,
+    403,
+  );
+});

@@ -21,6 +21,8 @@ import {
 } from './components.js';
 import { previewBuilder } from './preview-build.js';
 import { gitCommitter } from './git.js';
+import { figmaSpecSchema, type FigmaSpec } from '../shared/figma-spec.js';
+import { atomicWrite, readPrivate } from './files.js';
 import { ClaudeCodeEditor } from '../../connectors/agents/claude-code.js';
 import type { RecordInfo } from '../../scripts/runtime.mjs';
 
@@ -69,6 +71,11 @@ export async function createStudioServer(options: {
     options.rebuild ??
     (options.dev || options.dsDir ? undefined : preview.rebuildDist);
   const editor = options.editor ?? new ClaudeCodeEditor(dsDir);
+  // Export Figma (composants et écrans) préparé par l'atelier, lu par le plugin.
+  const specFile = path.join(store.directory, 'figma-spec.json');
+  let figmaSpec: FigmaSpec | null = await readPrivate(specFile, 8_000_000)
+    .then((raw) => figmaSpecSchema.parse(JSON.parse(raw)))
+    .catch(() => null);
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
   let closing = false;
@@ -109,7 +116,9 @@ export async function createStudioServer(options: {
       // révision validée et les tokens, en GET, rien d'autre. Figma impose un
       // nom de domaine : localhost est accepté pour cette route uniquement.
       const figmaRoute =
-        url.pathname === '/api/figma/tokens' && req.headers.origin === 'null';
+        (url.pathname === '/api/figma/tokens' ||
+          url.pathname === '/api/figma/spec') &&
+        req.headers.origin === 'null';
       // Figma tourne sur une page publique : Chromium envoie d'abord un
       // préflight « Private Network Access » avant d'atteindre localhost.
       const figmaPlugin =
@@ -193,6 +202,26 @@ export async function createStudioServer(options: {
               .parse(url.searchParams.get('path'));
             return send(200, { path: file, content: await components.read(file) });
           }
+          if (url.pathname === '/api/figma/spec/status') {
+            if (!figmaSpec) throw new StudioError('Aucun export Figma préparé.', 404);
+            return send(200, {
+              revision: figmaSpec.revision,
+              codeRevision: figmaSpec.codeRevision,
+              date: figmaSpec.date,
+              components: figmaSpec.components.length,
+              variants: figmaSpec.components.reduce((n, c) => n + c.variants.length, 0),
+              screens: figmaSpec.screens.length,
+            });
+          }
+          if (url.pathname === '/api/figma/spec') {
+            if (figmaPlugin) res.setHeader('Access-Control-Allow-Origin', 'null');
+            if (!figmaSpec)
+              throw new StudioError(
+                'Aucun export Figma préparé : DS-Studio → Intégrations → Préparer l’export Figma.',
+                404,
+              );
+            return send(200, figmaSpec);
+          }
           if (url.pathname === '/api/export')
             return send(200, store.snapshot().tokens);
           throw new StudioError('Route inconnue.', 404);
@@ -211,7 +240,14 @@ export async function createStudioServer(options: {
         for await (const chunk of req) {
           size += chunk.length;
           // Un fichier de composant complet peut dépasser la limite générale.
-          if (size > (url.pathname === '/api/components/propose' ? 450_000 : 128_000))
+          if (
+            size >
+            (url.pathname === '/api/figma/spec'
+              ? 6_000_000
+              : url.pathname === '/api/components/propose'
+                ? 450_000
+                : 128_000)
+          )
             throw new StudioError('Requête trop volumineuse.', 413);
           chunks.push(chunk);
         }
@@ -329,6 +365,12 @@ export async function createStudioServer(options: {
             active.delete(controller);
             res.off('close', cancel);
           }
+        }
+        if (url.pathname === '/api/figma/spec') {
+          const spec = figmaSpecSchema.parse(body);
+          await atomicWrite(specFile, JSON.stringify(spec));
+          figmaSpec = spec;
+          return send(200, { revision: spec.revision });
         }
         if (url.pathname === '/api/code/sync') {
           z.object({}).strict().parse(body);

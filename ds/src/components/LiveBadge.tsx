@@ -6,5 +6,13 @@ export function LiveBadge({ state }: { state: 'live' | 'offline' | 'error' }) {
     offline: '○ Hors ligne',
     error: '✕ Boîtier en erreur',
   }[state];
-  return <span className={`rv-live ${state}`}>{label}</span>;
+  return (
+    <span
+      className={`rv-live ${state}`}
+      data-ds="LiveBadge"
+      data-ds-variant={`state=${state}`}
+    >
+      {label}
+    </span>
+  );
 }

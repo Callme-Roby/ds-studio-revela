@@ -8,7 +8,7 @@ export function Field({
   placeholder: string;
 }) {
   return (
-    <label className="rv-field">
+    <label className="rv-field" data-ds="Field">
       <span className="rv-label">{label}</span>
       <input placeholder={placeholder} />
     </label>

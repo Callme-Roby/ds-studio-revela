@@ -10,7 +10,12 @@ export function Segmented({
 }) {
   const [value, setValue] = useState(options[0]);
   return (
-    <div className="rv-segmented" role="group" aria-label={label}>
+    <div
+      className="rv-segmented"
+      role="group"
+      aria-label={label}
+      data-ds="Segmented"
+    >
       {options.map((o) => (
         <button key={o} aria-pressed={value === o} onClick={() => setValue(o)}>
           {o}

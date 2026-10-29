@@ -731,3 +731,15 @@ dialog.code-dialog {
     flex-direction: column;
   }
 }
+
+/* Mode capture pour Figma : composants et écrans rendus à taille réelle. */
+.capture-item {
+  display: inline-block;
+  padding: 24px;
+  vertical-align: top;
+}
+.capture-screen {
+  width: 1440px;
+  height: 900px;
+  overflow: hidden;
+}

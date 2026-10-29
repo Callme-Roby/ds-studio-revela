@@ -6,6 +6,7 @@ export function AiSearch() {
   const [done, setDone] = useState('');
   return (
     <form
+      data-ds="AiSearch"
       className="rv-search"
       role="search"
       onSubmit={(e) => {

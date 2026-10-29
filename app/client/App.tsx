@@ -10,6 +10,11 @@ import HistoryView, { type CodeEntry } from './views/HistoryView.js';
 import IntegrationsView from './views/IntegrationsView.js';
 import { announceChange, useDesignState } from './state.js';
 import {
+  prepareFigmaExport,
+  specStatus,
+  type SpecStatus,
+} from './figmaExport.js';
+import {
   bootstrap,
   commit,
   exportTokens,
@@ -95,6 +100,20 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [variable, setVariable] = useState<TokenKey>();
+  const [spec, setSpec] = useState<SpecStatus | null>();
+  const [specBusy, setSpecBusy] = useState(false);
+  // Export Figma (composants et écrans) régénéré en arrière-plan quand il ne
+  // correspond plus aux révisions validées : le plugin lit toujours l'état courant.
+  const refreshSpec = (force = false) => {
+    setSpecBusy(true);
+    return (force ? prepareFigmaExport() : specStatus())
+      .then(setSpec)
+      .catch((e) => {
+        setSpec(null);
+        if (force) setError(e.message);
+      })
+      .finally(() => setSpecBusy(false));
+  };
 
   const refreshCode = () =>
     getCode()
@@ -110,6 +129,7 @@ export default function App() {
       .catch((e) => setError(e.message));
     void refreshCode();
     void refreshCodeHistory();
+    void refreshSpec();
     request<Bootstrap['agents']>('agents')
       .then(setAgents)
       .catch(() => setAgents([]));
@@ -236,6 +256,18 @@ export default function App() {
       );
     setCodeProposal(undefined);
   };
+
+  const latestCode = codeHistory[0]?.revision ?? 0;
+  const specStale =
+    spec !== undefined &&
+    !!state &&
+    (!spec ||
+      spec.revision !== state.revision ||
+      spec.codeRevision !== latestCode);
+  useEffect(() => {
+    if (specStale && !specBusy) void refreshSpec(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specStale, specBusy]);
 
   if (!state)
     return (
@@ -389,6 +421,9 @@ export default function App() {
             onResync={() => void resync()}
             onExport={() => void perform(exportTokens)}
             onImport={(f) => void importTokens(f)}
+            spec={spec}
+            specBusy={specBusy}
+            onPrepareSpec={() => void refreshSpec(true)}
           />
         )}
       </main>

@@ -2,7 +2,7 @@ import './Channels.css';
 
 export function Channels() {
   return (
-    <div className="rv-channels">
+    <div className="rv-channels" data-ds="Channels">
       {(['R', 'G', 'B'] as const).map((c) => (
         <span key={c} className={`rv-channel ${c}`}>
           <span aria-hidden="true" />

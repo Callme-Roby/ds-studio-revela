@@ -16,7 +16,11 @@ export function Thumb({
 }) {
   const [picked, setPicked] = useState(initialPick);
   return (
-    <figure className={`rv-thumb${picked ? ' is-pick' : ''}`}>
+    <figure
+      className={`rv-thumb${picked ? ' is-pick' : ''}`}
+      data-ds="Thumb"
+      data-ds-variant={`picked=${picked ? 'yes' : 'no'}, jpeg=${jpeg ? 'yes' : 'no'}`}
+    >
       <div
         className="rv-photo"
         style={{ '--shade': shades[index % shades.length] } as CSSProperties}

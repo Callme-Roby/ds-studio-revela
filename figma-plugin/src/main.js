@@ -2,7 +2,7 @@
 // N'écrit que dans la collection « Revela · DS-Studio », après clic sur un plan
 // affiché, puis relit les variables pour prouver l'écriture.
 
-figma.showUI(__html__, { width: 460, height: 640, themeColors: true });
+figma.showUI(__html__, { width: 480, height: 700, themeColors: true });
 
 async function readFigma() {
   const all = await figma.variables.getLocalVariableCollectionsAsync();
@@ -59,6 +59,14 @@ async function apply(source, expected, overwrite) {
   return { written: rows.length, readback: after, synced: isSynced(after) };
 }
 
+// Variables de la collection, par nom (« color/brand »), pour les liaisons.
+async function variablesByName() {
+  const { state } = await readFigma();
+  return Object.fromEntries(
+    Object.entries(state.variables).map(([name, v]) => [name, v.variable]),
+  );
+}
+
 figma.ui.onmessage = async (msg) => {
   try {
     if (msg.type === 'plan') {
@@ -72,6 +80,17 @@ figma.ui.onmessage = async (msg) => {
         result.synced
           ? `Variables Figma à jour (révision ${msg.source.revision}), relues.`
           : 'Écriture faite, mais la relecture montre des écarts.',
+      );
+    } else if (msg.type === 'build') {
+      const variables = await variablesByName();
+      if (!Object.keys(variables).length)
+        throw new Error(
+          'Appliquez d’abord les variables : les composants s’y lient.',
+        );
+      const result = await buildAll(figma, msg.spec, variables);
+      figma.ui.postMessage({ type: 'built', ...result });
+      figma.notify(
+        `${result.components} composants et ${result.screens} écrans construits, liés aux variables.`,
       );
     } else if (msg.type === 'close') figma.closePlugin();
   } catch (e) {

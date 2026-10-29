@@ -1,4 +1,5 @@
 import type { CodeStatus } from '../api.js';
+import type { SpecStatus } from '../figmaExport.js';
 
 type Agent = { id: string; available: boolean; detail: string };
 
@@ -10,6 +11,9 @@ export default function IntegrationsView({
   onResync,
   onExport,
   onImport,
+  spec,
+  specBusy,
+  onPrepareSpec,
 }: {
   code?: CodeStatus;
   agents: Agent[];
@@ -17,6 +21,9 @@ export default function IntegrationsView({
   onResync: () => void;
   onExport: () => void;
   onImport: (file: File) => void;
+  spec?: SpecStatus | null;
+  specBusy: boolean;
+  onPrepareSpec: () => void;
 }) {
   const claude = agents.find((a) => a.id === 'claude');
   const codex = agents.find((a) => a.id === 'codex');
@@ -71,8 +78,24 @@ export default function IntegrationsView({
           Dans Figma desktop : Plugins → Development → Import plugin from
           manifest… → <code>figma-plugin/manifest.json</code>. Puis « Lire
           DS-Studio » et « Appliquer » : la collection « Revela · DS-Studio »
-          reçoit les variables validées.
+          reçoit les variables validées ; les pages « Revela · Composants » et «
+          Revela · Écrans » reçoivent les composants (variantes) et les écrans,
+          liés à ces variables.
         </p>
+        <p className="muted small">
+          Composants et écrans : export{' '}
+          {specBusy
+            ? 'en préparation…'
+            : spec
+              ? `prêt · ${spec.components} composants, ${spec.variants} variantes, ${spec.screens} écrans · révisions r${spec.revision} / c${spec.codeRevision}`
+              : 'pas encore préparé'}
+          . Régénéré automatiquement après chaque validation.
+        </p>
+        <div className="row">
+          <button onClick={onPrepareSpec} disabled={specBusy}>
+            Préparer l’export Figma
+          </button>
+        </div>
         <p className="muted small">
           Lecture seule par le plugin sur{' '}
           <code>http://localhost:4310/api/figma/tokens</code>. Guide :

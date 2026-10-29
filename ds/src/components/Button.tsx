@@ -14,6 +14,8 @@ export function Button({
 }) {
   return (
     <button
+      data-ds="Button"
+      data-ds-variant={`variant=${variant}, state=${disabled ? 'disabled' : 'default'}`}
       className={`ds-button ${variant}`}
       disabled={disabled}
       onClick={onClick}

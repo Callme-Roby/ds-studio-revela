@@ -495,3 +495,37 @@ test('clavier, mobile 375 px et absence de stockage navigateur', async ({
     await page.locator('body').evaluate((el) => el.scrollWidth <= innerWidth),
   ).toBe(true);
 });
+
+test('export Figma : capture des composants et écrans, couleurs rattachées aux bons tokens', async ({
+  page,
+}) => {
+  await page.goto('/#/integrations');
+  await page.getByRole('button', { name: 'Préparer l’export Figma' }).click();
+  await expect(page.getByText(/export prêt · 11 composants/)).toBeVisible({
+    timeout: 20000,
+  });
+  const spec = await (await page.request.get('/api/figma/spec')).json();
+  const { revision } = await state(page);
+  expect(spec.revision).toBe(revision);
+  const button = spec.components.find(
+    (c: { name: string }) => c.name === 'Button',
+  );
+  const primary = button.variants.find((v: { variant: string }) =>
+    v.variant.startsWith('variant=primary, state=default'),
+  ).node;
+  // Fond et texte valent tous deux du blanc/noir : le rendu témoin les distingue.
+  expect(primary.fill.token).toBe('color.brand');
+  expect(primary.children[0].color.token).toBe('color.onBrand');
+  expect(primary.layout.padding[3].token).toBe('space.md');
+  expect(spec.screens.map((s: { name: string }) => s.name)).toEqual([
+    'Revela · Prise de vue',
+    'Revela · Bibliothèque',
+    'Revela · Développement',
+  ]);
+  // Dépôt pour le plugin uniquement en lecture, origine null.
+  expect(
+    (
+      await page.request.get('/api/figma/spec', { headers: { Origin: 'null' } })
+    ).status(),
+  ).toBe(200);
+});

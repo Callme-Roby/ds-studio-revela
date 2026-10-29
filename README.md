@@ -13,7 +13,7 @@ DS-Studio (http://127.0.0.1:4310)
         │
         ├─> ds/tokens.css            variables (ou tokens.css d’un autre projet)
         ├─> ds/src/**                code des composants (+ commit Git local facultatif)
-        └─> plugin Figma             variables « Revela · DS-Studio », relues
+        └─> plugin Figma             variables, composants (variantes) et écrans liés
 ```
 
 ## L’atelier en un coup d’œil
@@ -124,8 +124,9 @@ Figma **desktop**, sur la même machine que DS-Studio. Guide pas à pas :
 [docs/FIGMA_PLUGIN.md](docs/FIGMA_PLUGIN.md). En bref : **Plugins →
 Development → Import plugin from manifest…** → `figma-plugin/manifest.json`,
 puis dans un fichier : **Lire DS-Studio** → **Appliquer**. Le plugin crée ou met
-à jour la collection « Revela · DS-Studio » (45 variables), protège les
-retouches faites dans Figma et relit après écriture.
+à jour la collection « Revela · DS-Studio » (45 variables, relues), puis
+construit les pages « Revela · Composants » (11 composants, 19 variantes) et
+« Revela · Écrans » (3 écrans en instances), liés à ces variables.
 
 ## État réel
 
@@ -138,7 +139,7 @@ retouches faites dans Figma et relit après écriture.
 | Code des composants : édition, diff, aperçu compilé, validation, annulation, commit Git | **TESTÉ** (unitaires, API, navigateur) |
 | Agent de code Claude (copie isolée de `ds/`)             | **TESTÉ avec un faux CLI** ; envoi réel à qualifier            |
 | Plugin Figma (variables)                                   | **TESTÉ** dans un fichier de test, Figma desktop Windows        |
-| Composants et pages poussés vers Figma                     | **PRÉVU** (voir [feuille de route](workspace/FEUILLE_DE_ROUTE.md)) |
+| Composants et écrans poussés vers Figma, liés aux variables | **TESTÉ** (capture navigateur + plugin sur API simulée) ; essai dans Figma réel à faire |
 
 Preuves et limites, étape par étape : [workspace/DECISIONS.md](workspace/DECISIONS.md).
 
