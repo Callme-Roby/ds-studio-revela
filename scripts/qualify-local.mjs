@@ -22,7 +22,8 @@ async function start() {
   let log = '';
   live.stdout.on('data', (b) => (log += b.toString()));
   live.stderr.on('data', (b) => (log += b.toString()));
-  for (let attempt = 0; attempt < 100; attempt++) {
+  // Démarrage à froid de tsx lent sur les runners Windows : jusqu’à 30 s.
+  for (let attempt = 0; attempt < 300; attempt++) {
     if (live.exitCode !== null)
       throw new Error('Lanceur arrêté avant disponibilité : ' + log);
     try {
