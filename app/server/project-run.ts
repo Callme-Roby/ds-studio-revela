@@ -1,5 +1,6 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { promises as fs } from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { StudioError } from './store.js';
 
@@ -60,6 +61,12 @@ export async function projectCommands(root: string) {
     manager,
     install: `${manager} install`,
     dev: script ? `${manager} run ${script}` : null,
+    // Outils qui acceptent --port : le port choisi par DS-Studio leur est passé.
+    portFlag:
+      !!script &&
+      /\b(next|vite|astro|nuxt|nuxi|svelte-kit|remix|storybook|webpack serve|webpack-dev-server|ng serve)\b/.test(
+        pkg.scripts![script],
+      ),
     installed: await has('node_modules'),
     envExample: envExample ?? null,
     envFile: envFile ?? null,
@@ -87,13 +94,17 @@ export class ProjectRunner {
     return { install: view('install'), dev: view('dev') };
   }
 
-  async start(id: string, root: string, task: Task) {
+  // port : serveur de dev sur ce port (variable PORT, et --port si l'outil
+  // l'accepte), pour que deux projets n'affichent jamais le même serveur.
+  async start(id: string, root: string, task: Task, port?: number) {
     const key = `${id}:${task}`;
     if (this.runs.get(key)?.child) throw new StudioError('Déjà en cours.', 409);
     const commands = await projectCommands(root);
     if (!commands)
       throw new StudioError('Pas de package.json dans ce projet.', 409);
-    const command = task === 'install' ? commands.install : commands.dev;
+    let command = task === 'install' ? commands.install : commands.dev;
+    if (command && task === 'dev' && port && commands.portFlag)
+      command += `${commands.manager === 'npm' ? ' --' : ''} --port ${port}`;
     if (!command)
       throw new StudioError(
         'Aucun script dev, start ou serve dans le package.json.',
@@ -112,20 +123,31 @@ export class ProjectRunner {
       shell: true,
       windowsHide: true,
       detached: process.platform !== 'win32',
-      env: { ...process.env, FORCE_COLOR: '0', BROWSER: 'none' },
+      env: {
+        ...process.env,
+        FORCE_COLOR: '0',
+        BROWSER: 'none',
+        ...(task === 'dev' && port ? { PORT: String(port) } : {}),
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     run.child = child;
     this.runs.set(key, run);
+    let announced = false;
     const push = (b: Buffer) => {
       const text = b.toString('utf8').replace(/\x1b\[[0-9;]*m/g, '');
       run.log.push(text);
       if (run.log.length > keep) run.log.splice(0, run.log.length - keep);
-      if (task === 'dev') {
+      // Première adresse locale annoncée seulement (les journaux de l'app
+      // peuvent en citer d'autres ensuite).
+      if (task === 'dev' && !announced) {
         const url = text.match(
           /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):\d{2,5}/,
         )?.[0];
-        if (url) this.onUrl?.(id, url.replace('127.0.0.1', 'localhost'));
+        if (url) {
+          announced = true;
+          this.onUrl?.(id, url.replace('127.0.0.1', 'localhost'));
+        }
       }
     };
     child.stdout!.on('data', push);
@@ -149,22 +171,42 @@ export class ProjectRunner {
     return this.status(id);
   }
 
+  // À l'arrêt de DS-Studio : synchrone, sinon le processus se termine avant
+  // que les serveurs lancés soient arrêtés.
   stopAll() {
-    for (const run of this.runs.values()) if (run.child) kill(run.child);
+    for (const run of this.runs.values()) if (run.child) kill(run.child, true);
   }
 }
 
 // Arrête le processus et ses enfants (le serveur de dev lancé par npm).
-function kill(child: ChildProcess) {
+function kill(child: ChildProcess, sync = false) {
   if (!child.pid) return;
   try {
     if (process.platform === 'win32')
-      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-        windowsHide: true,
-        stdio: 'ignore',
-      });
+      (sync ? spawnSync : spawn)(
+        'taskkill',
+        ['/pid', String(child.pid), '/T', '/F'],
+        { windowsHide: true, stdio: 'ignore' },
+      );
     else process.kill(-child.pid, 'SIGTERM');
   } catch {
     /* Déjà terminé. */
   }
+}
+
+// Port libre sur ce poste (aucun serveur ne l'écoute).
+export function portFree(port: number) {
+  return new Promise<boolean>((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.listen(port, () => server.close(() => resolve(true)));
+  });
+}
+
+// Port du serveur de dev d'un projet : le sien s'il n'est ni partagé avec un
+// autre projet ni occupé, sinon le premier libre au-dessus.
+export async function choosePort(own: number, others: number[]) {
+  for (let p = own; p < own + 200 && p < 65536; p++)
+    if (!others.includes(p) && (await portFree(p))) return p;
+  throw new StudioError('Aucun port libre pour le serveur de dev.', 409);
 }

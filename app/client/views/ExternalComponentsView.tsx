@@ -6,6 +6,7 @@ import type { CodeProposal } from '../../server/components.js';
 import type { CodeEntry } from './HistoryView.js';
 import {
   componentName,
+  inCatalogPage,
   storiesFor,
   type Story,
 } from '../../shared/component-preview.js';
@@ -145,7 +146,11 @@ export default function ExternalComponentsView({
           <p className="muted small">{data.files.length} fichier(s).</p>
           {groups.map(([dir, files]) => (
             <section key={dir} aria-label={dir}>
-              <h3 className="list-title">{dir}</h3>
+              <h3 className="list-title">
+                {inCatalogPage(`${dir}/x`, catalog)
+                  ? `Page catalogue · ${dir}`
+                  : dir}
+              </h3>
               <ul className="component-list">
                 {files.map((p) => (
                   <li key={p}>
@@ -402,7 +407,10 @@ function ComponentPreview({
         carte « Aperçu »).
       </p>
     );
-  const src = `${url.replace(/\/$/, '')}${catalog}#${encodeURIComponent(name)}`;
+  // Fichier de la page catalogue : la page entière ; sinon la section du composant.
+  const src = inCatalogPage(file, catalog)
+    ? `${url.replace(/\/$/, '')}${catalog}`
+    : `${url.replace(/\/$/, '')}${catalog}#${encodeURIComponent(name)}`;
   return (
     <div className="detail-body">
       <p className="muted small">

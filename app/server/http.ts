@@ -27,7 +27,7 @@ import { ProjectRegistry, resolveInside } from './registry.js';
 import { ExternalTokens } from './external-tokens.js';
 import { SettingsStore, settingsSchema } from './settings.js';
 import { detectProject } from './detect.js';
-import { ProjectRunner, projectCommands } from './project-run.js';
+import { ProjectRunner, choosePort, projectCommands } from './project-run.js';
 import { zip } from './zip.js';
 import { pluginTokens } from './figma-external.js';
 import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
@@ -175,8 +175,21 @@ export async function createStudioServer(options: {
             extensions: [...defaultExtensions],
           })),
         );
-      if (!p.preview.url && (d.preview.url || d.preview.catalog))
-        await projects.setPreview(id, d.preview);
+      if (!p.preview.url && (d.preview.url || d.preview.catalog)) {
+        // Port déjà attribué à un autre projet : le suivant, pour que deux
+        // projets n'affichent jamais le même serveur.
+        const taken = list.projects
+          .filter((x) => x.id !== id)
+          .map((x) => x.preview.url.match(/:(\d{2,5})(?:\/|$)/)?.[1]);
+        let url = d.preview.url;
+        const m = url.match(/^(.*:)(\d{2,5})$/);
+        if (m) {
+          let port = Number(m[2]);
+          while (taken.includes(String(port))) port++;
+          url = `${m[1]}${port}`;
+        }
+        await projects.setPreview(id, { ...d.preview, url });
+      }
     } catch {
       /* Détection facultative : le projet reste ajouté, à régler à la main. */
     }
@@ -737,12 +750,26 @@ export async function createStudioServer(options: {
               .strict()
               .parse(body);
             const p = await projects.project(id);
-            return send(
-              200,
-              action === 'run/start'
-                ? await runner.start(id, p.root, b.task)
-                : runner.stop(id, b.task),
+            if (action === 'run/stop')
+              return send(200, runner.stop(id, b.task));
+            if (b.task === 'install')
+              return send(200, await runner.start(id, p.root, 'install'));
+            // Un port propre au projet : jamais celui d'un autre projet ni un
+            // port occupé ; l'adresse d'aperçu le suit aussitôt.
+            const portOf = (u: string) =>
+              Number(u.match(/:(\d{2,5})(?:\/|$)/)?.[1]) || 0;
+            const others = (await projects.list()).projects
+              .filter((x) => x.id !== id && !x.builtin)
+              .map((x) => portOf(x.preview.url))
+              .filter(Boolean);
+            const port = await choosePort(
+              portOf(p.preview.url) || 3000,
+              others,
             );
+            const url = `http://localhost:${port}`;
+            if (p.preview.url !== url)
+              await projects.setPreview(id, { ...p.preview, url });
+            return send(200, await runner.start(id, p.root, 'dev', port));
           }
           if (action === 'ai-setup') {
             // Configuration par Claude : lecture seule d'une copie du projet ;

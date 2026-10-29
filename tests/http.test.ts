@@ -1125,7 +1125,7 @@ test('mise en route : configuration par Claude (lecture seule, chemins vérifié
   // Faux serveur de dev : annonce son adresse puis reste ouvert.
   await writeFile(
     path.join(site, 'dev.cjs'),
-    "console.log('ready - Local: http://localhost:4987'); setInterval(() => {}, 1000);\n",
+    "console.log('ready - Local: http://localhost:' + process.env.PORT); setInterval(() => {}, 1000);\n",
   );
   await writeFile(
     path.join(site, 'package.json'),
@@ -1185,6 +1185,24 @@ test('mise en route : configuration par Claude (lecture seule, chemins vérifié
     'export default {};\n',
   );
 
+  // Un autre projet a déjà le port 4987 : le serveur de dev en prend un autre.
+  const other = await mkdtemp(path.join(tmpdir(), 'ds-http-other-'));
+  t.after(() => rm(other, { recursive: true, force: true }));
+  await post('projects/add', {
+    name: 'Autre',
+    root: other,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  await post('projects/autre/preview', {
+    url: 'http://localhost:4987',
+    catalog: '',
+  });
+  await post('projects/site/preview', {
+    url: 'http://localhost:4987',
+    catalog: '',
+  });
+
   // Seules les tâches fixes existent ; une commande libre est refusée.
   assert.equal(
     (await post('projects/site/run/start', { task: 'rm -rf /' })).status,
@@ -1198,18 +1216,18 @@ test('mise en route : configuration par Claude (lecture seule, chemins vérifié
     (await post('projects/site/run/start', { task: 'dev' })).status,
     409,
   );
-  let url = '';
-  for (let i = 0; i < 40 && url !== 'http://localhost:4987'; i++) {
+  const list = await (await fetch(origin + '/api/projects')).json();
+  const url = list.projects.find((x: { id: string }) => x.id === 'site').preview
+    .url;
+  // Port propre au projet, passé au serveur (PORT) ; l'aperçu le suit.
+  assert.match(url, /^http:\/\/localhost:\d+$/);
+  assert.notEqual(url, 'http://localhost:4987');
+  for (let i = 0; i < 40 && !setup.run.dev?.log.includes(url); i++) {
     await new Promise((r) => setTimeout(r, 250));
-    const list = await (await fetch(origin + '/api/projects')).json();
-    url = list.projects.find((x: { id: string }) => x.id === 'site').preview
-      .url;
+    setup = await (await fetch(origin + '/api/projects/site/setup')).json();
   }
-  // L'adresse annoncée par le serveur de dev devient celle de l'aperçu.
-  assert.equal(url, 'http://localhost:4987');
-  setup = await (await fetch(origin + '/api/projects/site/setup')).json();
   assert.equal(setup.run.dev.running, true);
-  assert.match(setup.run.dev.log, /ready - Local/);
+  assert.ok(setup.run.dev.log.includes(`ready - Local: ${url}`));
   await post('projects/site/run/stop', { task: 'dev' });
   for (let i = 0; i < 40 && setup.run.dev.running; i++) {
     await new Promise((r) => setTimeout(r, 250));

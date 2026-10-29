@@ -621,3 +621,14 @@ signalées, et Claude nomme les variables nécessaires sans valeur.
 **Essai réel (billboard).** `npm install` (493 paquets, 2 min) puis
 `next dev` lancés depuis la carte ; aperçu affiché. Sans `.env.local`, la
 base Neon est injoignable : la page garde ses panneaux de démonstration.
+
+## Un port par projet, styles rattachés à leur composant (2026-10-30)
+
+Deux projets réglés sur localhost:3000 affichaient le même serveur (CDPP
+montrait billboard). Au démarrage par DS-Studio, chaque projet reçoit un port
+qui n’est ni celui d’un autre projet ni occupé (variable PORT, et `--port`
+pour Next, Vite, Astro, Nuxt…) ; l’adresse d’aperçu le suit. Un projet ajouté
+reçoit d’emblée un port libre parmi les projets. Composants : `X.module.css`
+et `X.stories.tsx` pointent sur la section `#X` ; les fichiers de la page
+catalogue affichent la page entière. Arrêt de DS-Studio : les serveurs lancés
+sont arrêtés de façon synchrone (un serveur survivait à l’arrêt).

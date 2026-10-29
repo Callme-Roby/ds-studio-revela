@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { pluginTokens, toPluginToken } from '../app/server/figma-external.js';
-import { componentName, storiesFor } from '../app/shared/component-preview.js';
+import {
+  componentName,
+  inCatalogPage,
+  storiesFor,
+} from '../app/shared/component-preview.js';
 import { plan, scopesFor, variableName } from '../figma-plugin/src/logic.js';
 
 test('conversion pour Figma : couleurs #RRGGBB, dimensions en pixels, reste en texte', () => {
@@ -86,6 +90,19 @@ test('plugin : noms de groupes et portées pour un projet externe', () => {
 test('aperçu des composants : nom du composant et histoires Storybook associées', () => {
   assert.equal(componentName('src/components/Button.tsx'), 'Button');
   assert.equal(componentName('src/components/Card/index.tsx'), 'Card');
+  // Styles et histoires d'un composant : même composant.
+  assert.equal(
+    componentName('src/components/cause/ArticleCard.module.css'),
+    'ArticleCard',
+  );
+  assert.equal(componentName('src/ui/Button.stories.tsx'), 'Button');
+  // Fichiers de la page catalogue : la page entière.
+  assert.ok(inCatalogPage('src/app/ds-studio/page.module.css', '/ds-studio'));
+  assert.ok(inCatalogPage('pages/ds-studio/index.tsx', '/ds-studio'));
+  assert.ok(!inCatalogPage('src/components/Card.tsx', '/ds-studio'));
+  assert.ok(
+    !inCatalogPage('src/app/ds-studio/page.tsx', 'http://localhost:6006'),
+  );
   const stories = [
     {
       id: 'ui-button--primary',
