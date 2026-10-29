@@ -12,9 +12,14 @@ export default function CodeDiffDialog({
   error,
   onCancel,
   onAccept,
+  preview = true,
+  target = 'ds/src',
 }: {
   proposal?: CodeProposal;
   item?: string;
+  // Projet externe : pas d'aperçu compilé (son serveur de dev, étape D4).
+  preview?: boolean;
+  target?: string;
   busy: string;
   error: string;
   onCancel: () => void;
@@ -49,16 +54,18 @@ export default function CodeDiffDialog({
           <h2 id="code-diff-title">Valider le changement de code</h2>
           <p>
             Proposition {proposal.source} · {proposal.files.length} fichier(s)
-            de ds/src
+            de {target}
             {proposal.message ? ` · ${proposal.message}` : ''}.
           </p>
           <p
             className={proposal.build.ok ? 'checks-ok' : 'error'}
             role="status"
           >
-            {proposal.build.ok
-              ? 'Compilation réussie : l’aperçu utilise le code proposé, rien n’est encore écrit.'
-              : 'La proposition ne compile pas : validation impossible.'}
+            {!preview
+              ? 'Rien n’est encore écrit. Pas d’aperçu compilé pour ce projet : vérifiez avec son serveur de développement après validation.'
+              : proposal.build.ok
+                ? 'Compilation réussie : l’aperçu utilise le code proposé, rien n’est encore écrit.'
+                : 'La proposition ne compile pas : validation impossible.'}
           </p>
           {proposal.build.error && (
             <pre className="code-build-error">{proposal.build.error}</pre>
@@ -68,7 +75,9 @@ export default function CodeDiffDialog({
               {proposal.files.map((f) => (
                 <details key={f.path} open>
                   <summary>
-                    <code>ds/src/{f.path}</code>{' '}
+                    <code>
+                      {target === 'ds/src' ? `ds/src/${f.path}` : f.path}
+                    </code>{' '}
                     {f.after === null
                       ? 'supprimé '
                       : f.before === null
@@ -102,7 +111,7 @@ export default function CodeDiffDialog({
                 </details>
               ))}
             </div>
-            {proposal.build.ok && (
+            {preview && proposal.build.ok && (
               <div className="code-preview">
                 <div
                   className="segmented-ui"
@@ -157,7 +166,7 @@ export default function CodeDiffDialog({
               onClick={() => onAccept(git)}
               disabled={!!busy || !proposal.build.ok}
             >
-              {busy || 'Valider et écrire dans ds/src'}
+              {busy || `Valider et écrire dans ${target}`}
             </button>
           </div>
         </>

@@ -11,6 +11,7 @@ import {
   type ProjectView,
   type Registry,
   type TokenSource,
+  type ComponentSource,
 } from '../shared/projects.js';
 
 // Chemin d'un fichier du projet : relatif, résolu dans son dossier, aucun
@@ -135,6 +136,7 @@ export class ProjectRegistry {
           git: info,
           exists,
           tokens: p.tokens,
+          components: p.components,
         }
       : {
           id: builtinId,
@@ -146,6 +148,7 @@ export class ProjectRegistry {
           git: info,
           exists,
           tokens: [{ file: 'ds/tokens.css', format: 'css' }],
+          components: [{ dir: 'ds/src', extensions: ['tsx', 'ts', 'css'] }],
         };
   }
 
@@ -192,6 +195,7 @@ export class ProjectRegistry {
         id,
         createdAt: new Date().toISOString(),
         tokens: [],
+        components: [],
       };
       await fs.mkdir(this.stateDir(id), { recursive: true, mode: 0o700 });
       r.projects.push(project);
@@ -201,6 +205,24 @@ export class ProjectRegistry {
   }
 
   // Fichiers de tokens : dans le dossier du projet, jamais par un lien.
+  // Dossiers de composants : existants, dans le projet, jamais par un lien.
+  setComponents(id: string, components: ComponentSource[]) {
+    return this.change(async (r) => {
+      const p = r.projects.find((x) => x.id === id);
+      if (!p) throw new StudioError('Projet inconnu ou intégré.', 404);
+      const realRoot = await fs.realpath(p.root);
+      for (const c of components) {
+        const dir = path.resolve(realRoot, c.dir);
+        const stat = await fs.lstat(dir).catch(() => null);
+        if (!stat?.isDirectory() || stat.isSymbolicLink())
+          throw new StudioError(
+            `Dossier introuvable ou lien symbolique : ${c.dir}`,
+          );
+      }
+      p.components = components;
+    });
+  }
+
   setSources(id: string, sources: TokenSource[]) {
     return this.change(async (r) => {
       const p = r.projects.find((x) => x.id === id);

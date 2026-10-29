@@ -64,10 +64,44 @@ export const tokenSourceSchema = z
   .strict();
 export type TokenSource = z.infer<typeof tokenSourceSchema>;
 
+// Dossiers de composants du projet et extensions de fichiers éditables.
+export const defaultExtensions = [
+  'tsx',
+  'jsx',
+  'ts',
+  'js',
+  'vue',
+  'svelte',
+  'css',
+  'scss',
+  'html',
+];
+export const componentSourceSchema = z
+  .object({
+    dir: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .refine(
+        (d) =>
+          /^[\w@.-]+(\/[\w@.-]+)*$/.test(d) &&
+          !d.split('/').some((p) => p === '..' || p === '.'),
+        'Dossier relatif au projet (ex. src/components), sans « .. ».',
+      ),
+    extensions: z
+      .array(z.string().regex(/^[a-z0-9]{1,8}$/))
+      .min(1)
+      .max(12),
+  })
+  .strict();
+export type ComponentSource = z.infer<typeof componentSourceSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
   createdAt: z.string().max(40),
   tokens: z.array(tokenSourceSchema).max(10).default([]),
+  components: z.array(componentSourceSchema).max(10).default([]),
 });
 export type Project = z.infer<typeof projectSchema>;
 export type NewProject = z.infer<typeof newProjectSchema>;
@@ -92,4 +126,5 @@ export type ProjectView = {
   git?: { branch: string; remote?: string; dirty: number } | null;
   exists: boolean;
   tokens: TokenSource[];
+  components: ComponentSource[];
 };

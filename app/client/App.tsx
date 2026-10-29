@@ -3,6 +3,7 @@ import ProjectBrief from './ProjectBrief.js';
 import Assistant from './Assistant.js';
 import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
 import ExternalProjectView from './views/ExternalProjectView.js';
+import ExternalComponentsView from './views/ExternalComponentsView.js';
 import ExternalVariablesView, {
   ExternalHistoryView,
 } from './views/ExternalVariablesView.js';
@@ -81,10 +82,11 @@ const views = [
   },
 ] as const;
 type View = (typeof views)[number]['id'];
-// Projet externe : parties disponibles à ce stade (D2).
+// Projet externe : parties disponibles à ce stade (D3).
 const externalViews = [
   { id: 'apercu', label: 'Vue d’ensemble', icon: '◎' },
   { id: 'variables', label: 'Variables', icon: '◐' },
+  { id: 'composants', label: 'Composants', icon: '◇' },
   { id: 'historique', label: 'Historique', icon: '↺' },
 ] as const;
 const readHash = (): { view: View; item?: string } => {
@@ -426,6 +428,13 @@ export default function App() {
           )}
           {externalView === 'variables' && (
             <ExternalVariablesView key={external.id} project={external} />
+          )}
+          {externalView === 'composants' && (
+            <ExternalComponentsView
+              key={external.id}
+              project={external}
+              isRepo={!!external.git}
+            />
           )}
           {externalView === 'historique' && (
             <ExternalHistoryView key={external.id} project={external} />

@@ -592,7 +592,11 @@ test('projet externe : fichiers de tokens, variable modifiée sur place, annulé
     await page.goto('/#/apercu');
     // Chemin saisi à la Windows : DS-Studio le normalise en src/tokens.css.
     await page.getByLabel('Fichier de tokens à ajouter').fill(String.raw`src\tokens.css`);
-    await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+    await page
+      .locator('form')
+      .filter({ has: page.getByLabel('Fichier de tokens à ajouter') })
+      .getByRole('button', { name: 'Ajouter' })
+      .click();
     await expect(page.getByText('2 token(s), 1 hors :root ignoré(s)')).toBeVisible();
     await page.getByRole('link', { name: /Variables/ }).click();
     await page.getByRole('button', { name: 'Sélectionner brand' }).click();
@@ -613,5 +617,64 @@ test('projet externe : fichiers de tokens, variable modifiée sur place, annulé
   } finally {
     await page.request.post('/api/projects/remove', { headers, data: { id: 'vitrine' } });
     await rm(folder, { recursive: true, force: true });
+  }
+});
+
+test('projet externe : composant modifié, commit local, envoi au clic vers le dépôt distant', async ({ page }) => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtemp, mkdir, readFile, rm, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const g = (cwd: string, ...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).trim();
+  const dir = await mkdtemp(path.join(tmpdir(), 'ds-e2e-git-'));
+  const origin = path.join(dir, 'origin.git');
+  const work = path.join(dir, 'app');
+  g(dir, 'init', '-q', '--bare', '-b', 'main', origin);
+  await mkdir(path.join(work, 'src', 'ui'), { recursive: true });
+  g(work, 'init', '-q', '-b', 'main');
+  g(work, 'config', 'user.email', 'e2e@example.invalid');
+  g(work, 'config', 'user.name', 'E2E');
+  g(work, 'config', 'core.autocrlf', 'false');
+  await writeFile(path.join(work, 'src', 'ui', 'Card.css'), '.card {\n  padding: 8px;\n}\n');
+  g(work, 'add', '-A');
+  g(work, 'commit', '-qm', 'base');
+  g(work, 'remote', 'add', 'origin', origin);
+  g(work, 'push', '-q', '-u', 'origin', 'main');
+  const boot = await (await page.request.get('/api/bootstrap')).json();
+  const headers = { 'X-DS-Studio': boot.csrf, Origin: 'http://127.0.0.1:4318' };
+  try {
+    await page.request.post('/api/projects/add', {
+      headers,
+      data: { name: 'App', root: work, source: { type: 'local', url: '' }, figma: { plugin: false, fileUrl: '' } },
+    });
+    await page.goto('/#/apercu');
+    await expect(page.getByText('0 commit(s) à pousser')).toBeVisible();
+    await page.getByLabel('Dossier de composants à ajouter').fill('src/ui');
+    await page
+      .locator('form')
+      .filter({ has: page.getByLabel('Dossier de composants à ajouter') })
+      .getByRole('button', { name: 'Ajouter' })
+      .click();
+    await expect(page.locator('.usage-list').filter({ hasText: 'src/ui' })).toBeVisible();
+    await page.getByRole('link', { name: /Composants/ }).click();
+    const editor = page.getByLabel('Code de src/ui/Card.css');
+    await editor.fill('.card {\n  padding: 16px;\n}\n');
+    await page.getByRole('button', { name: 'Proposer ce changement' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Valider le changement de code' });
+    await expect(dialog).toContainText('Rien n’est encore écrit');
+    expect(await readFile(path.join(work, 'src', 'ui', 'Card.css'), 'utf8')).toContain('8px');
+    await dialog.getByRole('button', { name: 'Valider et écrire dans App' }).click();
+    await expect(page.getByText(/Révision de code c1|Révision c1 écrite dans le projet/)).toBeVisible();
+    expect(await readFile(path.join(work, 'src', 'ui', 'Card.css'), 'utf8')).toContain('16px');
+    expect(g(work, 'log', '-1', '--format=%s')).toMatch(/^DS c1/);
+    await page.getByRole('link', { name: /Vue d’ensemble/ }).click();
+    await expect(page.getByText('1 commit(s) à pousser')).toBeVisible();
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: 'Pousser 1 commit(s)' }).click();
+    await expect(page.getByText('Commits poussés vers le dépôt distant.')).toBeVisible();
+    expect(g(dir, '--git-dir', origin, 'log', '-1', '--format=%s')).toMatch(/^DS c1/);
+  } finally {
+    await page.request.post('/api/projects/remove', { headers, data: { id: 'app' } });
+    await rm(dir, { recursive: true, force: true });
   }
 });

@@ -440,3 +440,31 @@ modification, fichier vérifié sur disque, annulation). Vérifié à l’écran
 paires de couleurs seront proposées par l’IA en D5) ; pas d’aperçu (D4).
 Deux tests navigateur ont dépassé leur délai lors d’une exécution sous forte
 charge (1 min 48 au lieu de 19 s), puis sont passés.
+
+## 2026-10-29 — Phase D3 : composants et Git des projets externes
+
+**Choix.** Le stockage de code de Revela (propositions, diff, validation relue,
+journal, annulation, commit des seuls fichiers validés) est réutilisé pour un
+projet externe, limité aux dossiers de composants déclarés et à des extensions
+de code courantes ; node_modules, dist, build et .git sont ignorés. Pas d’aperçu
+compilé pour un projet externe (son serveur de dev viendra en D4). Git :
+clonage d’une URL `https://github.com/…` dans un dossier vide, avec les
+identifiants Git de l’étudiant (jamais d’invite dans le terminal, fenêtre du
+gestionnaire d’identifiants possible) ; commit local facultatif à chaque
+validation (variables ou code) ; envoi uniquement sur clic et confirmation ;
+première publication d’une branche possible ; jamais de force-push, envoi
+refusé si le distant a des commits non récupérés.
+
+**Incidents.** Deux boutons « Ajouter » dans la vue d’ensemble ont rendu un test
+navigateur ambigu (cible par formulaire). Un test écrit avec `\t` dans un chemin
+Windows avait produit une tabulation (chaîne brute).
+
+**Preuves.** 4 tests Git sur un dépôt distant local (publication, en avance,
+envoi, refus si le distant a avancé, commit limité aux fichiers validés,
+chemins refusés), 1 test HTTP (dossiers, chemins fermés, plugin refusé),
+1 test navigateur (dossier déclaré, composant modifié, commit, envoi vérifié
+dans le dépôt distant). 94 tests unitaires et API, 18 navigateur, 20 lanceur.
+
+**Limites.** Clonage depuis le vrai GitHub non essayé (pas de réseau en test) ;
+pas de « git pull » dans DS-Studio (à faire dans le terminal) ; éditeur de code
+simple.

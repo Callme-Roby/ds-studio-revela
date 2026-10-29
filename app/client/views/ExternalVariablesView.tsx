@@ -5,6 +5,9 @@ import type {
   ExternalToken,
   TokenProposal,
 } from '../../server/external-tokens.js';
+import type { CodeProposal } from '../../server/components.js';
+import type { CodeEntry } from './HistoryView.js';
+import CodeDiffDialog from '../CodeDiffDialog.js';
 
 type Source = {
   file: string;
@@ -106,15 +109,17 @@ export default function ExternalVariablesView({
         }),
       ),
     );
-  const accept = () =>
+  const accept = (git: boolean) =>
     run(async () => {
-      const entry = await request<Entry>(
+      const entry = await request<Entry & { git?: { detail: string } }>(
         `projects/${project.id}/tokens/commit`,
-        { id: proposal!.id },
+        { id: proposal!.id, git },
       );
       setProposal(undefined);
       await refresh();
-      setMessage(`Révision t${entry.revision} écrite dans le projet et relue.`);
+      setMessage(
+        `Révision t${entry.revision} écrite dans le projet et relue.${entry.git ? ` ${entry.git.detail}` : ''}`,
+      );
     });
   if (error)
     return (
@@ -336,7 +341,8 @@ export default function ExternalVariablesView({
         busy={busy}
         error={problem}
         onCancel={() => setProposal(undefined)}
-        onAccept={() => void accept()}
+        onAccept={(git) => void accept(git)}
+        gitAvailable={!!project.git}
       />
     </>
   );
@@ -348,13 +354,16 @@ export function ExternalDiffDialog({
   error,
   onCancel,
   onAccept,
+  gitAvailable = false,
 }: {
   proposal?: TokenProposal;
   busy: boolean;
   error: string;
   onCancel: () => void;
-  onAccept: () => void;
+  onAccept: (git: boolean) => void;
+  gitAvailable?: boolean;
 }) {
+  const [git, setGit] = useState(true);
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -423,6 +432,17 @@ export function ExternalDiffDialog({
           </tbody>
         </table>
       </div>
+      {gitAvailable && (
+        <label className="checks-ack">
+          <input
+            type="checkbox"
+            checked={git}
+            onChange={(e) => setGit(e.target.checked)}
+          />
+          Créer aussi un commit Git de ces fichiers (local, poussé seulement sur
+          votre clic)
+        </label>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -432,7 +452,11 @@ export function ExternalDiffDialog({
         <button ref={cancel} onClick={onCancel} disabled={busy}>
           Ne pas appliquer
         </button>
-        <button className="studio-primary" onClick={onAccept} disabled={busy}>
+        <button
+          className="studio-primary"
+          onClick={() => onAccept(gitAvailable && git)}
+          disabled={busy}
+        >
           {busy ? 'Écriture…' : 'Valider et écrire dans le projet'}
         </button>
       </div>
@@ -504,15 +528,18 @@ export function ExternalHistoryView({ project }: { project: ProjectView }) {
           ))}
         </ol>
       </section>
+      <ExternalCodeHistory project={project} />
       <ExternalDiffDialog
         proposal={proposal}
         busy={busy}
         error={problem}
         onCancel={() => setProposal(undefined)}
-        onAccept={() =>
+        gitAvailable={!!project.git}
+        onAccept={(git) =>
           void run(async () => {
             await request(`projects/${project.id}/tokens/commit`, {
               id: proposal!.id,
+              git,
             });
             setProposal(undefined);
             await refresh();
@@ -520,5 +547,94 @@ export function ExternalHistoryView({ project }: { project: ProjectView }) {
         }
       />
     </div>
+  );
+}
+
+// Historique du code des composants d'un projet externe, révisions c annulables.
+export function ExternalCodeHistory({ project }: { project: ProjectView }) {
+  const [history, setHistory] = useState<CodeEntry[]>();
+  const [proposal, setProposal] = useState<CodeProposal>();
+  const [busy, setBusy] = useState('');
+  const [problem, setProblem] = useState('');
+  const base = `projects/${project.id}/components`;
+  const refresh = () =>
+    request<{ history: CodeEntry[] }>(base)
+      .then((r) => setHistory(r.history))
+      .catch((e) => setProblem(e.message));
+  useEffect(() => {
+    if (project.components.length) void refresh();
+  }, [project.id]);
+  if (!project.components.length) return null;
+  async function run(label: string, work: () => Promise<void>) {
+    setBusy(label);
+    setProblem('');
+    try {
+      await work();
+    } catch (e) {
+      setProblem((e as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+  return (
+    <section className="history" aria-label="Historique du code du projet">
+      <h2>Code des composants</h2>
+      {problem && !proposal && (
+        <p className="error" role="alert">
+          {problem}
+        </p>
+      )}
+      {history && !history.length && <p>Aucune révision de code.</p>}
+      <ol>
+        {history?.map((h) => (
+          <li key={h.id}>
+            <div>
+              <strong>c{h.revision}</strong> · {h.source}
+              {h.git && (
+                <>
+                  {' '}
+                  · commit <code>{h.git}</code>
+                </>
+              )}{' '}
+              · <time>{new Date(h.date).toLocaleString('fr-FR')}</time>
+              <p>
+                {h.files
+                  .map((f) => `${f.path} +${f.added} −${f.removed}`)
+                  .join(', ')}
+              </p>
+            </div>
+            <button
+              onClick={() =>
+                void run('Préparation…', async () =>
+                  setProposal(
+                    await request<CodeProposal>(`${base}/undo`, { id: h.id }),
+                  ),
+                )
+              }
+            >
+              Annuler c{h.revision}
+            </button>
+          </li>
+        ))}
+      </ol>
+      <CodeDiffDialog
+        proposal={proposal}
+        busy={busy}
+        error={problem}
+        preview={false}
+        target={project.name}
+        onCancel={() => setProposal(undefined)}
+        onAccept={(git) =>
+          void run('Écriture…', async () => {
+            await request(`${base}/commit`, {
+              id: proposal!.id,
+              git: git && !!project.git,
+            });
+            setProposal(undefined);
+            await refresh();
+          })
+        }
+      />
+    </section>
   );
 }

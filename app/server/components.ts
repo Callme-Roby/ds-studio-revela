@@ -27,6 +27,31 @@ export const codeProposeSchema = z
   })
   .strict();
 
+// Projet externe : chemins relatifs au dossier du projet, dans les dossiers de
+// composants déclarés, extensions de code courantes.
+export const externalPath = /^[\w@.-]+(\/[\w@.-]+)*$/;
+export const externalChangeSchema = z
+  .object({
+    path: z.string().max(300).regex(externalPath),
+    content: z.string().max(maxFile).nullable(),
+  })
+  .strict();
+export const externalProposeSchema = z
+  .object({
+    changes: z.array(externalChangeSchema).min(1).max(20),
+    message: z.string().max(500).default(''),
+  })
+  .strict();
+const skipped = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.next',
+  'coverage',
+]);
+export type ComponentScope = { dirs: string[]; extensions: string[] };
+
 export type FileChange = z.infer<typeof changeSchema>;
 export type BuildResult = { ok: boolean; error?: string };
 export type PreviewBuilder = (
@@ -76,12 +101,24 @@ export class ComponentStore {
     private previewDir: string,
     private builder?: PreviewBuilder,
     private git?: GitCommitter,
+    // Projet externe : dossiers de composants et extensions autorisés.
+    private scope?: ComponentScope,
   ) {
     this.journalFile = path.join(dataDir, 'components-history.json');
   }
 
+  private allowed(rel: string) {
+    if (!this.scope) return componentPath.test(rel);
+    const parts = rel.split('/');
+    return (
+      externalPath.test(rel) &&
+      !parts.some((p) => p === '..' || p === '.' || skipped.has(p)) &&
+      this.scope.extensions.some((e) => rel.endsWith(`.${e}`)) &&
+      this.scope.dirs.some((d) => rel.startsWith(`${d}/`))
+    );
+  }
   private resolve(rel: string) {
-    if (!componentPath.test(rel))
+    if (!this.allowed(rel))
       throw new StudioError('Chemin de composant refusé.');
     const file = path.join(this.srcDir, ...rel.split('/'));
     if (!file.startsWith(this.srcDir + path.sep))
@@ -100,20 +137,28 @@ export class ComponentStore {
     const out: { path: string; size: number }[] = [];
     const walk = async (dir: string, prefix: string) => {
       for (const e of await fs.readdir(dir, { withFileTypes: true })) {
-        if (e.isSymbolicLink()) continue;
+        if (e.isSymbolicLink() || skipped.has(e.name)) continue;
         const rel = prefix ? `${prefix}/${e.name}` : e.name;
         if (e.isDirectory()) await walk(path.join(dir, e.name), rel);
-        else if (e.isFile() && componentPath.test(rel)) {
+        else if (e.isFile() && this.allowed(rel)) {
           out.push({
             path: rel,
             size: (await fs.stat(path.join(dir, e.name))).size,
           });
-          if (out.length > maxFiles)
-            throw new StudioError('Trop de fichiers dans ds/src.');
+          if (out.length > (this.scope ? 400 : maxFiles))
+            throw new StudioError(
+              'Trop de fichiers dans les dossiers de composants.',
+            );
         }
       }
     };
-    await walk(this.srcDir, '');
+    if (!this.scope) await walk(this.srcDir, '');
+    else
+      for (const d of this.scope.dirs) {
+        const dir = path.join(this.srcDir, ...d.split('/'));
+        const stat = await fs.lstat(dir).catch(() => null);
+        if (stat?.isDirectory() && !stat.isSymbolicLink()) await walk(dir, d);
+      }
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 

@@ -878,3 +878,19 @@ dialog.add-project legend {
   flex-direction: column;
   align-items: flex-start;
 }
+
+/* Git du projet : compteurs en ligne. */
+.git-stats {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+}
+.git-stats strong {
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+}

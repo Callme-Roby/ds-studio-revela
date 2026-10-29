@@ -513,3 +513,52 @@ test('variables d’un projet externe : sources, proposition, validation sur pla
     403,
   );
 });
+
+test('composants et Git d’un projet externe : dossiers vérifiés, chemins fermés, plugin refusé', async (t) => {
+  const { origin, post } = await fixture(t);
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-comp-ext-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  await mkdir(path.join(folder, 'ui'));
+  await writeFile(path.join(folder, 'ui', 'Card.css'), '.card { padding: 8px; }\n');
+  await writeFile(path.join(folder, 'secret.env'), 'TOKEN=x\n');
+  await post('projects/add', {
+    name: 'App',
+    root: folder,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  assert.equal((await fetch(origin + '/api/projects/app/components')).status, 409);
+  assert.equal(
+    (await post('projects/app/component-dirs', { components: [{ dir: '../x', extensions: ['css'] }] })).status,
+    400,
+  );
+  assert.equal(
+    (await post('projects/app/component-dirs', { components: [{ dir: 'absent', extensions: ['css'] }] })).status,
+    400,
+  );
+  assert.equal(
+    (await post('projects/app/component-dirs', { components: [{ dir: 'ui', extensions: ['css'] }] })).status,
+    200,
+  );
+  const list = await (await fetch(origin + '/api/projects/app/components')).json();
+  assert.deepEqual(list.files.map((f: { path: string }) => f.path), ['ui/Card.css']);
+  assert.equal((await fetch(origin + '/api/projects/app/components/file?path=secret.env')).status, 400);
+  assert.equal((await fetch(origin + '/api/projects/app/components/file?path=../x.css')).status, 400);
+  assert.equal(
+    (await post('projects/app/components/propose', { changes: [{ path: 'secret.env', content: 'x' }] })).status,
+    400,
+  );
+  const p = await (
+    await post('projects/app/components/propose', { changes: [{ path: 'ui/Card.css', content: '.card { padding: 16px; }\n' }] })
+  ).json();
+  const done = await (await post('projects/app/components/commit', { id: p.id, git: false })).json();
+  assert.equal(done.entry.revision, 1);
+  assert.equal(await readFile(path.join(folder, 'ui', 'Card.css'), 'utf8'), '.card { padding: 16px; }\n');
+  assert.deepEqual(await (await fetch(origin + '/api/projects/app/git')).json(), { repo: false });
+  assert.equal(
+    (await fetch(origin + '/api/projects/app/components', { headers: { Origin: 'null' } })).status,
+    403,
+  );
+  assert.equal((await post('projects/app/git/push', {}, { Origin: 'null' })).status, 403);
+});

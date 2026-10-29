@@ -116,13 +116,21 @@ function AddProject({
     setSaving(true);
     setError('');
     try {
+      // GitHub : DS-Studio clone le dépôt dans le dossier indiqué (vide ou absent).
       onAdded(
-        await request<Projects>('projects/add', {
-          name,
-          root,
-          source: { type, url: type === 'github' ? url : '' },
-          figma: { plugin, fileUrl },
-        }),
+        type === 'github'
+          ? await request<Projects>('projects/clone', {
+              name,
+              url,
+              dest: root,
+              figma: { plugin, fileUrl },
+            })
+          : await request<Projects>('projects/add', {
+              name,
+              root,
+              source: { type, url: '' },
+              figma: { plugin, fileUrl },
+            }),
       );
     } catch (e) {
       setError((e as Error).message);
@@ -198,13 +206,16 @@ function AddProject({
               required
             />
             <span className="muted small">
-              Le clonage par DS-Studio arrive à l’étape D3 : pour l’instant,
-              indiquez aussi le dossier où vous l’avez cloné.
+              DS-Studio clone le dépôt avec vos identifiants Git habituels
+              (fenêtre de connexion si besoin). Rien n’est envoyé sans votre
+              clic.
             </span>
           </label>
         )}
         <label className="field">
-          Dossier du projet sur ce poste (chemin absolu)
+          {type === 'github'
+            ? 'Cloner dans le dossier (chemin absolu, vide ou à créer)'
+            : 'Dossier du projet sur ce poste (chemin absolu)'}
           <input
             value={root}
             onChange={(e) => setRoot(e.target.value)}
@@ -238,7 +249,13 @@ function AddProject({
             Annuler
           </button>
           <button className="studio-primary" disabled={saving}>
-            {saving ? 'Ajout…' : 'Ajouter le projet'}
+            {saving
+              ? type === 'github'
+                ? 'Clonage…'
+                : 'Ajout…'
+              : type === 'github'
+                ? 'Cloner et ajouter'
+                : 'Ajouter le projet'}
           </button>
         </div>
       </form>

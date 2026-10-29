@@ -25,7 +25,13 @@ import { figmaSpecSchema, type FigmaSpec } from '../shared/figma-spec.js';
 import { atomicWrite, readPrivate } from './files.js';
 import { ProjectRegistry } from './registry.js';
 import { ExternalTokens } from './external-tokens.js';
-import { tokenSourceSchema } from '../shared/projects.js';
+import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
+import { externalPath, externalProposeSchema } from './components.js';
+import {
+  componentSourceSchema,
+  newProjectSchema as cloneBase,
+  tokenSourceSchema,
+} from '../shared/projects.js';
 import {
   newProjectSchema,
   projectSchema as dsProjectSchema,
@@ -84,6 +90,34 @@ export async function createStudioServer(options: {
     .then((raw) => figmaSpecSchema.parse(JSON.parse(raw)))
     .catch(() => null);
   const projects = new ProjectRegistry(store.directory, root);
+  const externalStores = new Map<
+    string,
+    { key: string; store: ComponentStore }
+  >();
+  async function externalComponents(id: string) {
+    const p = await projects.project(id);
+    if (!p.components.length)
+      throw new StudioError(
+        'Aucun dossier de composants déclaré pour ce projet.',
+        409,
+      );
+    const key = JSON.stringify([p.root, p.components]);
+    const cached = externalStores.get(id);
+    if (cached?.key === key) return { project: p, store: cached.store };
+    const store = new ComponentStore(
+      p.root,
+      projects.stateDir(id),
+      path.join(root, '.ds-studio-preview'),
+      undefined,
+      gitCommitter(p.root),
+      {
+        dirs: p.components.map((c) => c.dir),
+        extensions: [...new Set(p.components.flatMap((c) => c.extensions))],
+      },
+    );
+    externalStores.set(id, { key, store });
+    return { project: p, store };
+  }
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
   let closing = false;
@@ -200,6 +234,29 @@ export async function createStudioServer(options: {
           }
           if (url.pathname === '/api/projects')
             return send(200, await projects.list());
+          const projectGet = url.pathname.match(
+            /^\/api\/projects\/([a-z0-9-]{1,40})\/(git|components|components\/file)$/,
+          );
+          if (projectGet) {
+            const [, id, what] = projectGet;
+            if (what === 'git')
+              return send(
+                200,
+                await gitStatus((await projects.project(id)).root),
+              );
+            const { store: cs } = await externalComponents(id);
+            if (what === 'components')
+              return send(200, {
+                files: await cs.list(),
+                history: await cs.history(),
+              });
+            const file = z
+              .string()
+              .max(300)
+              .regex(externalPath)
+              .parse(url.searchParams.get('path'));
+            return send(200, { path: file, content: await cs.read(file) });
+          }
           const projectTokens = url.pathname.match(
             /^\/api\/projects\/([a-z0-9-]{1,40})\/tokens$/,
           );
@@ -278,7 +335,7 @@ export async function createStudioServer(options: {
             size >
             (url.pathname === '/api/figma/spec'
               ? 6_000_000
-              : url.pathname === '/api/components/propose'
+              : url.pathname.endsWith('/components/propose')
                 ? 450_000
                 : 128_000)
           )
@@ -346,7 +403,7 @@ export async function createStudioServer(options: {
           return send(200, { state, code: await code.write() });
         }
         const projectRoute = url.pathname.match(
-          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|tokens\/propose|tokens\/commit|tokens\/undo)$/,
+          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push)$/,
         );
         if (projectRoute) {
           const [, id, action] = projectRoute;
@@ -357,6 +414,48 @@ export async function createStudioServer(options: {
               .parse(body);
             await projects.setSources(id, b.tokens);
             return send(200, await projects.list());
+          }
+          if (action === 'component-dirs') {
+            const b = z
+              .object({ components: z.array(componentSourceSchema).max(10) })
+              .strict()
+              .parse(body);
+            await projects.setComponents(id, b.components);
+            return send(200, await projects.list());
+          }
+          if (action === 'git/fetch' || action === 'git/push') {
+            z.object({}).strict().parse(body);
+            const projectRoot = (await projects.project(id)).root;
+            return send(
+              200,
+              await (action === 'git/fetch'
+                ? gitFetch(projectRoot)
+                : gitPush(projectRoot)),
+            );
+          }
+          if (action.startsWith('components/')) {
+            const { store: cs } = await externalComponents(id);
+            if (action === 'components/propose') {
+              const b = externalProposeSchema.parse(body);
+              return send(
+                200,
+                await cs.propose(b.changes, 'manual', b.message),
+              );
+            }
+            const b = z
+              .object({ id: z.string().uuid(), git: z.boolean().optional() })
+              .strict()
+              .parse(body);
+            if (action === 'components/discard') {
+              cs.discard(b.id);
+              return send(200, {});
+            }
+            if (action === 'components/undo')
+              return send(200, await cs.undo(b.id));
+            return send(200, {
+              ...(await cs.commit(b.id, b.git)),
+              rebuilt: false,
+            });
           }
           const service = new ExternalTokens(
             await projects.project(id),
@@ -385,10 +484,45 @@ export async function createStudioServer(options: {
               await service.propose(b.changes, 'manual', b.message),
             );
           }
-          const b = z.object({ id: z.string().uuid() }).strict().parse(body);
-          if (action === 'tokens/commit')
-            return send(200, await service.commit(b.id));
+          const b = z
+            .object({ id: z.string().uuid(), git: z.boolean().optional() })
+            .strict()
+            .parse(body);
+          if (action === 'tokens/commit') {
+            const entry = await service.commit(b.id);
+            // Commit Git facultatif des seuls fichiers de tokens modifiés.
+            const files = [...new Set(entry.patches.map((p) => p.file))];
+            const git = b.git
+              ? await gitCommitter((await projects.project(id)).root)(
+                  files,
+                  `DS t${entry.revision} · ${entry.patches.map((p) => p.key).join(', ')}`.slice(
+                    0,
+                    200,
+                  ),
+                )
+              : undefined;
+            return send(200, { ...entry, git });
+          }
           return send(200, await service.undo(b.id));
+        }
+        if (url.pathname === '/api/projects/clone') {
+          const b = z
+            .object({
+              name: cloneBase.shape.name,
+              url: z.string().max(300),
+              dest: z.string().trim().min(1).max(500),
+              figma: cloneBase.shape.figma,
+            })
+            .strict()
+            .parse(body);
+          await cloneRepo(b.url, b.dest);
+          await projects.add({
+            name: b.name,
+            root: b.dest,
+            source: { type: 'github', url: b.url },
+            figma: b.figma,
+          });
+          return send(200, await projects.list());
         }
         if (url.pathname === '/api/projects/add') {
           await projects.add(newProjectSchema.parse(body));

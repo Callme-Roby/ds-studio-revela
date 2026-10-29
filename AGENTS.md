@@ -21,6 +21,8 @@ Lire [START_HERE.md](START_HERE.md). Le contexte appartient à l’étudiant.
   projets externes déclarés), un dossier d’état par projet, état Git en lecture seule.
 - `app/shared/token-sources.ts` + `app/server/external-tokens.ts` : tokens d’un
   projet externe (CSS, SCSS, JSON) lus et réécrits sur place, propositions, journal.
+- `app/server/project-git.ts` : clonage GitHub, état, récupération et envoi sur
+  clic (jamais de force-push) ; composants externes via `ComponentStore` (scope).
 - `connectors/agents/claude-code.ts` : agent de code sur une copie temporaire de
   `ds/`, outils fichiers seulement ; ses différences deviennent une proposition.
 - `connectors/agents/` : Codex et Claude Code (profil sans outils) qualifiés, Gemini indisponible.

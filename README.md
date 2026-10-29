@@ -104,8 +104,23 @@ fichiers de tokens (relatifs à son dossier) : variables CSS de `:root`, SCSS
 liste par fichier et par famille ; une proposition passe par le même diff,
 puis seules les valeurs validées sont réécrites **sur place** (le reste du
 fichier est conservé octet pour octet), relues et journalisées (t1, t2…,
-annulables dans **Historique**). Composants, aperçu et analyse par l’IA
-arrivent aux étapes D3 à D6.
+annulables dans **Historique**).
+
+**Dépôt GitHub** : choisissez « Dépôt GitHub » dans le formulaire, collez
+l’URL et un dossier de destination vide : DS-Studio clone le dépôt avec vos
+identifiants Git habituels (aucun n’est lu ni stocké par DS-Studio).
+
+**Composants d’un projet externe** : déclarez ses dossiers (ex.
+`src/components`) dans la vue d’ensemble ; la vue **Composants** liste leurs
+fichiers (tsx, jsx, vue, svelte, css, scss…, hors node_modules/dist/.git),
+modifiables sur diff et validation. Chaque validation (variables ou code) peut
+créer un **commit Git local** des seuls fichiers validés.
+
+**Pousser** : la carte Git de la vue d’ensemble affiche la branche, les commits
+à pousser et à récupérer ; « Vérifier le dépôt distant » récupère l’état
+distant, « Pousser N commit(s) » envoie après confirmation. Jamais de
+force-push : l’envoi est refusé si le distant a avancé. Aperçu et analyse par
+l’IA arrivent aux étapes D4 et D5.
 
 ## Écrire les tokens de Revela dans un autre dossier
 

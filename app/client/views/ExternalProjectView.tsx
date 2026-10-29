@@ -4,16 +4,12 @@ import type { Projects } from '../ProjectSwitcher.js';
 import type { ProjectView, TokenSource } from '../../shared/projects.js';
 import { formatOf } from '../../shared/token-sources.js';
 import { useExternalTokens } from './ExternalVariablesView.js';
+import { ComponentDirsCard, GitCard } from './ProjectCards.js';
 
 // Projet externe : fiche du projet (dossier, Git, Figma) et ce qui reste à
 // brancher. Variables : fichiers de tokens déclarés ici (étape D2) ;
 // composants, aperçu, IA et Figma arrivent aux étapes D3 à D6.
 const steps = [
-  [
-    'D3',
-    'Composants et Git',
-    'fichiers de composants, clonage GitHub, commits, envoi au clic',
-  ],
   ['D4', 'Aperçu', 'le serveur de développement du projet, à largeur réelle'],
   [
     'D5',
@@ -60,32 +56,14 @@ export default function ExternalProjectView({
             ? 'Dossier présent sur ce poste.'
             : 'Dossier introuvable : déplacé ou supprimé ?'}
         </p>
-        <h2>Git</h2>
-        {project.git ? (
-          <p className="muted">
-            Branche <code>{project.git.branch}</code>
-            {project.git.remote ? (
-              <>
-                {' '}
-                · origine <code className="path">{project.git.remote}</code>
-              </>
-            ) : (
-              ' · pas de dépôt distant'
-            )}
-            {' · '}
-            {project.git.dirty
-              ? `${project.git.dirty} fichier(s) modifié(s) non commités`
-              : 'aucune modification en cours'}
-          </p>
-        ) : (
-          <p className="muted">Pas un dépôt Git.</p>
-        )}
         {project.source.type === 'github' && (
           <p className="muted small">
             Source : <code className="path">{project.source.url}</code>
           </p>
         )}
       </article>
+      <GitCard project={project} />
+      <ComponentDirsCard project={project} onChange={onChange} />
       <article className="card">
         <h2>Fichiers de tokens</h2>
         <p className="muted small">
