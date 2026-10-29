@@ -1106,3 +1106,114 @@ test('assistant d’un projet externe (faux CLI) : un diff de variables et un di
     /--text: #222222;/,
   );
 });
+
+test('mise en route : configuration par Claude (lecture seule, chemins vérifiés), serveur de dev lancé au clic puis arrêté', async (t) => {
+  const { ProjectCodeEditor } =
+    await import('../connectors/agents/project-code.js');
+  const directory = await mkdtemp(path.join(tmpdir(), 'ds-http-setup-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  const site = path.join(directory, 'site');
+  await mkdir(path.join(site, 'src', 'app'), { recursive: true });
+  await mkdir(path.join(site, 'src', 'components'), { recursive: true });
+  await writeFile(
+    path.join(site, 'src', 'app', 'globals.css'),
+    ':root {\n  --a: #111111;\n  --b: #222222;\n}\n',
+  );
+  await writeFile(path.join(site, 'next.config.ts'), 'export default {};\n');
+  await writeFile(path.join(site, '.env.example'), 'DATABASE_URL=\n');
+  // Faux serveur de dev : annonce son adresse puis reste ouvert.
+  await writeFile(
+    path.join(site, 'dev.cjs'),
+    "console.log('ready - Local: http://localhost:4987'); setInterval(() => {}, 1000);\n",
+  );
+  await writeFile(
+    path.join(site, 'package.json'),
+    JSON.stringify({ scripts: { dev: 'node dev.cjs' } }),
+  );
+  const store = new Store(path.join(directory, 'data'), seed);
+  await store.init();
+  const fake = path.join(root, 'tests/fixtures/fake-claude.mjs');
+  const app = await createStudioServer({
+    root,
+    store,
+    claude: new ClaudeAdapter(process.execPath, [fake, 'ok']),
+    projectEditor: new ProjectCodeEditor(process.execPath, [fake, 'setup']),
+  });
+  await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', r));
+  t.after(() => app.close());
+  const origin = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
+  const { csrf } = await (await fetch(origin + '/api/bootstrap')).json();
+  const post = (route: string, body: unknown) =>
+    fetch(origin + '/api/' + route, {
+      method: 'POST',
+      headers: {
+        Origin: origin,
+        'Content-Type': 'application/json',
+        'X-DS-Studio': csrf,
+      },
+      body: JSON.stringify(body),
+    });
+  await post('projects/add', {
+    name: 'Site',
+    root: site,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  await post('projects/site/component-dirs', { components: [] });
+  await post('projects/site/sources', { tokens: [] });
+  let setup = await (await fetch(origin + '/api/projects/site/setup')).json();
+  assert.equal(setup.commands.install, 'npm install');
+  assert.equal(setup.commands.dev, 'npm run dev');
+  assert.equal(setup.commands.installed, false);
+  assert.equal(setup.commands.envExample, '.env.example');
+  assert.equal(setup.commands.envFile, null);
+  assert.equal(setup.catalog, false);
+
+  const ai = await (await post('projects/site/ai-setup', {})).json();
+  assert.match(ai.summary, /Lecture seule : ok\./);
+  assert.deepEqual(ai.tokens, ['src/app/globals.css']);
+  assert.deepEqual(ai.components, ['src/components']);
+  assert.deepEqual(ai.env, [
+    { name: 'DATABASE_URL', why: 'Lue au démarrage.' },
+  ]);
+  const p = ai.projects.projects.find((x: { id: string }) => x.id === 'site');
+  assert.deepEqual(p.tokens, [{ file: 'src/app/globals.css', format: 'css' }]);
+  // Lecture seule : la copie a été modifiée, pas le projet.
+  assert.equal(
+    await readFile(path.join(site, 'next.config.ts'), 'utf8'),
+    'export default {};\n',
+  );
+
+  // Seules les tâches fixes existent ; une commande libre est refusée.
+  assert.equal(
+    (await post('projects/site/run/start', { task: 'rm -rf /' })).status,
+    400,
+  );
+  assert.equal(
+    (await post('projects/site/run/start', { task: 'dev' })).status,
+    200,
+  );
+  assert.equal(
+    (await post('projects/site/run/start', { task: 'dev' })).status,
+    409,
+  );
+  let url = '';
+  for (let i = 0; i < 40 && url !== 'http://localhost:4987'; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    const list = await (await fetch(origin + '/api/projects')).json();
+    url = list.projects.find((x: { id: string }) => x.id === 'site').preview
+      .url;
+  }
+  // L'adresse annoncée par le serveur de dev devient celle de l'aperçu.
+  assert.equal(url, 'http://localhost:4987');
+  setup = await (await fetch(origin + '/api/projects/site/setup')).json();
+  assert.equal(setup.run.dev.running, true);
+  assert.match(setup.run.dev.log, /ready - Local/);
+  await post('projects/site/run/stop', { task: 'dev' });
+  for (let i = 0; i < 40 && setup.run.dev.running; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    setup = await (await fetch(origin + '/api/projects/site/setup')).json();
+  }
+  assert.equal(setup.run.dev.running, false);
+});

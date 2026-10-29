@@ -263,9 +263,9 @@ export function PreviewCard({
     <article className="card">
       <h2>Aperçu</h2>
       <p className="muted small">
-        Le serveur de développement du projet, lancé par vous (ex.{' '}
-        <code>npm run dev</code>), affiché dans l’atelier. Adresses locales
-        seulement.
+        Le serveur de développement du projet (ex. <code>npm run dev</code>
+        ), lancé par vous ou depuis la mise en route, affiché dans l’atelier.
+        Adresses locales seulement.
       </p>
       <form
         className="stack"

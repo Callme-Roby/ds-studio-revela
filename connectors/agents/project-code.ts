@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { cliEnv, runCli, type CliLabels } from './codex.js';
 import { claudeCodeArgs } from './claude-code.js';
+import { z } from 'zod';
 import type { FileChange } from '../../app/server/components.js';
+import type { Detection } from '../../app/server/detect.js';
 
 // Agent de code pour un projet externe : Claude Code travaille dans une COPIE
 // du projet (sans node_modules, .git ni sorties de build), avec les seuls
@@ -157,5 +159,42 @@ export function catalogRequest(
       ? `Next.js App Router : composant serveur par défaut ; les composants clients existants s'importent normalement. Ajoute export const metadata = { robots: { index: false, follow: false } }. Désactive la page en production : import { notFound } from "next/navigation" et appelle notFound() si process.env.NODE_ENV === "production".`
       : `Next.js Pages Router : page par défaut exportée ; renvoie une 404 en production.`,
     `Utilise les alias d'import et les conventions du projet (styles en modules CSS si besoin : crée-les dans le même dossier). Ne modifie aucun autre fichier que ceux de ${target.dir}.`,
+  ].join('\n');
+}
+
+// Configuration d'un projet par Claude : il lit la copie sans rien modifier et
+// répond par un JSON ; DS-Studio vérifie chaque chemin avant de l'appliquer.
+export const setupAnswer = z
+  .object({
+    tokens: z
+      .array(
+        z.object({
+          file: z.string().min(1).max(300),
+          format: z.enum(['css', 'scss', 'json']),
+        }),
+      )
+      .max(5),
+    components: z.array(z.string().min(1).max(300)).max(5),
+    preview: z.string().max(200).default(''),
+    env: z
+      .array(
+        z.object({
+          name: z.string().max(100),
+          why: z.string().max(300),
+        }),
+      )
+      .max(30)
+      .default([]),
+    summary: z.string().max(2000),
+  })
+  .strip();
+
+export function setupRequest(detection: Detection) {
+  return [
+    `Analyse ce projet pour le brancher sur DS-Studio. NE MODIFIE AUCUN FICHIER : lecture seulement.`,
+    `Trouve : 1) les fichiers où sont définies les variables de design (couleurs, espacements, typographie) au format CSS (variables --x dans :root ou @theme), SCSS ($x) ou JSON ; 2) les dossiers des composants d'interface réutilisables (pas les pages, l'API ni les utilitaires) ; 3) l'adresse locale du serveur de développement ; 4) les variables d'environnement indispensables pour que le serveur de dev démarre et affiche les pages (nom et raison courte ; jamais de valeur).`,
+    `Pré-détection automatique (à corriger si besoin) : ${JSON.stringify({ tokens: detection.tokens, components: detection.components, preview: detection.preview })}.`,
+    `Chemins relatifs à la racine, séparateur /. Réponds UNIQUEMENT par ce JSON, sans texte autour :`,
+    `{"tokens":[{"file":"src/app/globals.css","format":"css"}],"components":["src/components"],"preview":"http://localhost:3000","env":[{"name":"DATABASE_URL","why":"…"}],"summary":"2 à 4 phrases en français : ce que tu as trouvé et ce qui manque."}`,
   ].join('\n');
 }

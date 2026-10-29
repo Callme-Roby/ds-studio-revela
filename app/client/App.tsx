@@ -109,6 +109,8 @@ export default function App() {
   const [codeHistory, setCodeHistory] = useState<CodeEntry[]>([]);
   const [proposal, setProposal] = useState<Proposal>();
   const [incoming, setIncoming] = useState<ExternalAgentResult>();
+  // Projet à configurer dès son branchement (ou celui de l'IA).
+  const [autoSetup, setAutoSetup] = useState<string>();
   const [codeProposal, setCodeProposal] = useState<{
     p: CodeProposal;
     item?: string;
@@ -355,6 +357,10 @@ export default function App() {
             data={projects}
             onChange={setProjects}
             onOnboarding={() => setOnboarding(true)}
+            onAdded={(next) => {
+              setAutoSetup(next.active);
+              location.hash = '#/apercu';
+            }}
           />
         ) : (
           <div className="wordmark">
@@ -459,6 +465,13 @@ export default function App() {
               key={external.id}
               project={external}
               onChange={setProjects}
+              agent={settings?.agent}
+              autoSetup={autoSetup === external.id}
+              onAutoSetupDone={() => setAutoSetup(undefined)}
+              onProposal={(codeProposal) => {
+                setIncoming({ tokenProposal: null, codeProposal });
+                location.hash = '#/composants';
+              }}
             />
           )}
           {externalView === 'ecran' && (
@@ -609,7 +622,15 @@ export default function App() {
             request<{ onboarded: boolean; agent: 'claude' | 'codex' | 'none' }>(
               'settings',
             )
-              .then(setSettings)
+              .then(async (s) => {
+                setSettings(s);
+                // IA branchée sur un projet externe : configuration enchaînée.
+                const p = await request<Projects>('projects');
+                if (s.agent === 'claude' && p.active !== 'revela') {
+                  setAutoSetup(p.active);
+                  location.hash = '#/apercu';
+                }
+              })
               .catch(() => {});
           }}
         />

@@ -573,6 +573,13 @@ test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', 
       page.getByRole('heading', { name: 'Site vitrine', level: 1 }),
     ).toBeVisible();
     await expect(page.getByText('Dossier présent sur ce poste.')).toBeVisible();
+    // Mise en route : étapes visibles ; dossier vide, donc pas de package.json.
+    await expect(
+      page.getByRole('heading', { name: 'Mise en route' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Pas de package.json : projet non JavaScript ?'),
+    ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Ouvrir dans Figma' }),
     ).toHaveAttribute('href', 'https://www.figma.com/design/abc/Site');

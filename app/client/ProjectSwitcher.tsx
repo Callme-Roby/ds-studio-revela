@@ -8,10 +8,13 @@ export type Projects = { active: string; projects: ProjectView[] };
 export default function ProjectSwitcher({
   data,
   onChange,
+  onAdded,
   onOnboarding,
 }: {
   data: Projects;
   onChange: (next: Projects) => void;
+  // Projet tout juste ajouté (devenu actif).
+  onAdded?: (next: Projects) => void;
   onOnboarding?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -100,6 +103,7 @@ export default function ProjectSwitcher({
           onAdded={(next) => {
             setAdding(false);
             onChange(next);
+            onAdded?.(next);
           }}
         />
       )}

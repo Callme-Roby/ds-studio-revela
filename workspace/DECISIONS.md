@@ -599,3 +599,25 @@ fichiers de tokens, dossier de composants et adresse d’aperçu détectés ; se
 l’état de DS-Studio est écrit, tout reste modifiable. Le lecteur CSS lit aussi
 `:root` après un `@import` et les blocs `@theme` de Tailwind 4 (cas réel :
 billboard). Un même fichier ou dossier déclaré deux fois ne compte qu’une fois.
+
+## Mise en route d'un projet : commandes au clic, configuration par Claude (2026-10-30)
+
+**Demande.** Un projet intégré doit être branché dès le début (variables,
+composants, aperçu), avec l'IA qui configure au besoin juste après sa
+connexion.
+
+**Choix de l'étudiant.** DS-Studio peut lancer `install` et le script `dev`
+du projet, au clic ; la configuration par Claude enchaîne tout.
+
+**Garde-fous.** Deux tâches fixes seulement (gestionnaire déduit du fichier de
+verrou, script dev/start/serve du package.json) : aucune commande saisie n'est
+exécutée. Sortie visible, arrêt de l'arbre de processus, arrêt automatique
+avec DS-Studio. Claude analyse une copie en lecture seule (aucun fichier
+retenu) et répond en JSON ; chaque chemin est vérifié avant d'être appliqué
+aux réglages de DS-Studio. La page catalogue reste soumise au diff. Les
+fichiers `.env` ne sont ni lus ni écrits : seules leurs présences sont
+signalées, et Claude nomme les variables nécessaires sans valeur.
+
+**Essai réel (billboard).** `npm install` (493 paquets, 2 min) puis
+`next dev` lancés depuis la carte ; aperçu affiché. Sans `.env.local`, la
+base Neon est injoignable : la page garde ses panneaux de démonstration.

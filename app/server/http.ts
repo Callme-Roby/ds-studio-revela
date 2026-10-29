@@ -23,10 +23,11 @@ import { previewBuilder } from './preview-build.js';
 import { gitCommitter } from './git.js';
 import { figmaSpecSchema, type FigmaSpec } from '../shared/figma-spec.js';
 import { atomicWrite, readPrivate } from './files.js';
-import { ProjectRegistry } from './registry.js';
+import { ProjectRegistry, resolveInside } from './registry.js';
 import { ExternalTokens } from './external-tokens.js';
 import { SettingsStore, settingsSchema } from './settings.js';
 import { detectProject } from './detect.js';
+import { ProjectRunner, projectCommands } from './project-run.js';
 import { zip } from './zip.js';
 import { pluginTokens } from './figma-external.js';
 import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
@@ -48,6 +49,8 @@ import {
   ProjectCodeEditor,
   catalogRequest,
   catalogTarget,
+  setupAnswer,
+  setupRequest,
 } from '../../connectors/agents/project-code.js';
 import type { RecordInfo } from '../../scripts/runtime.mjs';
 
@@ -179,6 +182,18 @@ export async function createStudioServer(options: {
     }
     return projects.list();
   }
+  // Serveur de dev lancé par DS-Studio : son adresse réelle (port libre
+  // choisi par lui) devient l'adresse d'aperçu du projet.
+  const runner = new ProjectRunner((id, address) => {
+    void projects
+      .project(id)
+      .then((p) =>
+        p.preview.url === address
+          ? undefined
+          : projects.setPreview(id, { ...p.preview, url: address }),
+      )
+      .catch(() => {});
+  });
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
   let closing = false;
@@ -373,10 +388,27 @@ export async function createStudioServer(options: {
               await detectProject((await projects.project(detect[1])).root),
             );
           const projectGet = url.pathname.match(
-            /^\/api\/projects\/([a-z0-9-]{1,40})\/(git|components|components\/file|preview\/check|stories)$/,
+            /^\/api\/projects\/([a-z0-9-]{1,40})\/(git|components|components\/file|preview\/check|stories|setup)$/,
           );
           if (projectGet) {
             const [, id, what] = projectGet;
+            if (what === 'setup') {
+              // Mise en route : dépendances, environnement, commandes, catalogue.
+              const p = await projects.project(id);
+              const catalog = p.preview.catalog.startsWith('/')
+                ? await catalogTarget(p.root, p.preview.catalog)
+                : null;
+              return send(200, {
+                commands: await projectCommands(p.root),
+                run: runner.status(id),
+                catalog: catalog
+                  ? await fs
+                      .access(path.join(p.root, catalog.file))
+                      .then(() => true)
+                      .catch(() => false)
+                  : /^https?:/.test(p.preview.catalog),
+              });
+            }
             if (what === 'preview/check') {
               // Le serveur de dev répond-il ? Adresse locale seulement.
               const target = (await projects.project(id)).preview.url;
@@ -606,7 +638,7 @@ export async function createStudioServer(options: {
           return send(200, { state, code: await code.write() });
         }
         const projectRoute = url.pathname.match(
-          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push|catalog\/generate|agent)$/,
+          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push|catalog\/generate|agent|run\/start|run\/stop|ai-setup)$/,
         );
         if (projectRoute) {
           const [, id, action] = projectRoute;
@@ -692,6 +724,97 @@ export async function createStudioServer(options: {
                 message: reply.message,
                 denied: reply.denied,
                 proposal,
+              });
+            } finally {
+              busy = false;
+              active.delete(controller);
+              res.off('close', cancel);
+            }
+          }
+          if (action === 'run/start' || action === 'run/stop') {
+            const b = z
+              .object({ task: z.enum(['install', 'dev']) })
+              .strict()
+              .parse(body);
+            const p = await projects.project(id);
+            return send(
+              200,
+              action === 'run/start'
+                ? await runner.start(id, p.root, b.task)
+                : runner.stop(id, b.task),
+            );
+          }
+          if (action === 'ai-setup') {
+            // Configuration par Claude : lecture seule d'une copie du projet ;
+            // sa réponse (JSON) règle tokens, composants et aperçu, vérifiés ici.
+            z.object({}).strict().parse(body);
+            const p = await projects.project(id);
+            if (busy)
+              throw new StudioError('Une demande IA est déjà en cours.', 429);
+            const status = await adapters.claude.status();
+            if (!status.available) throw new StudioError(status.detail, 503);
+            busy = true;
+            const controller = new AbortController();
+            active.add(controller);
+            const cancel = () => controller.abort();
+            res.once('close', cancel);
+            try {
+              const reply = await projectEditor.edit(
+                p,
+                setupRequest(await detectProject(p.root)),
+                () => false,
+                controller.signal,
+              );
+              let raw: unknown = null;
+              try {
+                raw = JSON.parse(reply.message.match(/\{[\s\S]*\}/)?.[0] ?? '');
+              } catch {
+                /* Réponse non JSON : refusée ci-dessous. */
+              }
+              const found = setupAnswer.safeParse(raw);
+              if (!found.success)
+                throw new StudioError(
+                  'Réponse de Claude illisible : rien n’a été réglé. Réessayez ou réglez à la main.',
+                  502,
+                );
+              const a = found.data;
+              // Chaque élément est vérifié : un chemin absent est écarté.
+              const tokens = [];
+              for (const t of a.tokens)
+                if (
+                  await resolveInside(p.root, t.file).then(
+                    () => true,
+                    () => false,
+                  )
+                )
+                  tokens.push(t);
+              const dirs = [];
+              for (const d of a.components) {
+                const stat = await fs
+                  .lstat(path.join(p.root, d))
+                  .catch(() => null);
+                if (stat?.isDirectory() && !stat.isSymbolicLink()) dirs.push(d);
+              }
+              if (tokens.length) await projects.setSources(id, tokens);
+              if (dirs.length)
+                await projects.setComponents(
+                  id,
+                  dirs.map((dir) => ({
+                    dir,
+                    extensions: [...defaultExtensions],
+                  })),
+                );
+              if (!p.preview.url && a.preview && localUrl.test(a.preview))
+                await projects.setPreview(id, {
+                  ...p.preview,
+                  url: a.preview,
+                });
+              return send(200, {
+                summary: a.summary,
+                env: a.env,
+                tokens: tokens.map((t) => t.file),
+                components: dirs,
+                projects: await projects.list(),
               });
             } finally {
               busy = false;
@@ -1141,6 +1264,7 @@ export async function createStudioServer(options: {
     server,
     close: async () => {
       for (const c of active) c.abort();
+      runner.stopAll();
       closing = true;
       const closed = new Promise<void>((resolve, reject) =>
         server.close((e) => (e ? reject(e) : resolve())),

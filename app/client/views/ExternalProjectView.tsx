@@ -5,25 +5,30 @@ import type { ProjectView, TokenSource } from '../../shared/projects.js';
 import { formatOf } from '../../shared/token-sources.js';
 import { useExternalTokens } from './ExternalVariablesView.js';
 import { ComponentDirsCard, GitCard, PreviewCard } from './ProjectCards.js';
+import SetupCard from './SetupCard.js';
+import type { CodeProposal } from '../../server/components.js';
 
 // Projet externe : fiche du projet (dossier, Git, Figma) et ce qui reste à
 // brancher. Variables : fichiers de tokens déclarés ici (étape D2) ;
 // composants, aperçu, IA et Figma arrivent aux étapes D3 à D6.
 const steps = [
-  [
-    'D5',
-    'Analyse par l’IA',
-    'Claude propose où sont tokens et composants, vous validez',
-  ],
   ['D6', 'Figma', 'collection du projet synchronisée par le plugin'],
 ] as const;
 
 export default function ExternalProjectView({
   project,
   onChange,
+  agent,
+  autoSetup,
+  onAutoSetupDone,
+  onProposal,
 }: {
   project: ProjectView;
   onChange: (next: Projects) => void;
+  agent?: 'claude' | 'codex' | 'none';
+  autoSetup?: boolean;
+  onAutoSetupDone?: () => void;
+  onProposal: (p: CodeProposal) => void;
 }) {
   const [fileUrl, setFileUrl] = useState(project.figma.fileUrl);
   const [plugin, setPlugin] = useState(project.figma.plugin);
@@ -45,6 +50,14 @@ export default function ExternalProjectView({
   }
   return (
     <div className="cards">
+      <SetupCard
+        project={project}
+        onChange={onChange}
+        agent={agent}
+        auto={autoSetup}
+        onAutoDone={onAutoSetupDone}
+        onProposal={onProposal}
+      />
       <article className="card">
         <h2>Dossier</h2>
         <p>

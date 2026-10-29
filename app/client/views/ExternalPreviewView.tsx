@@ -101,16 +101,22 @@ export default function ExternalPreviewView({
       </div>
       {check && !check.reachable ? (
         <div className="notice">
-          <p>{check.detail} Dans un terminal, depuis le dossier du projet :</p>
+          <p>
+            {check.detail} Démarrez-le depuis la vue d’ensemble (carte « Mise en
+            route » : installation puis serveur, au clic), ou dans un terminal,
+            depuis le dossier du projet :
+          </p>
           <pre className="code-block">
             <span>{`cd "${project.root}"`}</span>
+            <span>npm install</span>
             <span>npm run dev</span>
           </pre>
-          <p className="muted small">
-            DS-Studio ne lance pas le projet lui-même : vous gardez la main sur
-            ce qui s’exécute.
-          </p>
-          <button onClick={run}>Vérifier à nouveau</button>
+          <div className="row">
+            <a className="button studio-primary" href="#/apercu">
+              Mise en route
+            </a>
+            <button onClick={run}>Vérifier à nouveau</button>
+          </div>
         </div>
       ) : (
         <div className="stage" ref={stage}>

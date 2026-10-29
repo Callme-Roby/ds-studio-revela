@@ -141,12 +141,24 @@ l’IA arrivent à l’étape D5.
 
 **Aperçu d’un projet externe** : carte « Aperçu » de la vue d’ensemble —
 adresse de son serveur de développement (déduite des dépendances : Next 3000,
-Vite 5173…), lancé par vous (`npm run dev`). La vue **Aperçu** l’affiche à
+Vite 5173…), lancé par vous (`npm run dev`) ou depuis la carte **Mise en
+route** de la vue d’ensemble. La vue **Aperçu** l’affiche à
 largeur réelle (champ pour choisir la page). Pour voir un composant seul,
 indiquez un **catalogue** : une page de l’app avec une section
 `#NomDuComposant` par composant (ex. `/ds-studio`), ou l’adresse de
 Storybook ; l’onglet **Aperçu** de chaque composant l’affiche. Adresses
-locales uniquement ; DS-Studio ne lance jamais le projet.
+locales uniquement.
+
+**Mise en route** (vue d’ensemble d’un projet) : l’état de chaque étape
+(dépendances, `.env`, serveur de dev, variables, composants, page
+catalogue) et l’action qui la règle. **Installer et démarrer** lance les
+commandes fixes du projet (`npm|pnpm|yarn install`, puis le script `dev`),
+au clic seulement, avec leur sortie et un bouton Arrêter. **Tout configurer
+avec Claude** enchaîne : analyse d’une copie en lecture seule (fichiers de
+tokens, dossiers de composants, adresse, variables d’environnement
+nécessaires), installation, serveur, puis page catalogue proposée au diff.
+Elle se lance d’elle-même juste après l’ajout d’un projet ou le
+branchement de Claude. DS-Studio ne lit ni n’écrit les secrets (`.env`).
 
 **Figma par projet** : le plugin propose un sélecteur de projet (Revela et
 les projets cochés « plugin Figma ») ; les variables d’un projet externe vont

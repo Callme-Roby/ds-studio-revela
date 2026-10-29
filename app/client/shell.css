@@ -1120,3 +1120,46 @@ a.button.studio-primary:hover {
   width: 180px;
   font-family: var(--ui-font-mono);
 }
+
+/* Mise en route d'un projet externe : étapes, état, sortie des commandes. */
+.setup-card {
+  grid-column: 1 / -1;
+}
+.setup-steps {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+.setup-steps li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--ui-border);
+}
+.setup-steps li div span {
+  display: block;
+}
+.setup-mark {
+  color: var(--ui-text-subtle);
+  text-align: center;
+}
+.setup-steps li[data-ok='true'] .setup-mark {
+  color: var(--ui-success);
+}
+.run-log {
+  max-height: 260px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: var(--ui-input-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
