@@ -10,7 +10,35 @@ import {
   type Project,
   type ProjectView,
   type Registry,
+  type TokenSource,
 } from '../shared/projects.js';
+
+// Chemin d'un fichier du projet : relatif, résolu dans son dossier, aucun
+// segment symbolique (realpath doit rester dans le dossier réel du projet).
+export async function resolveInside(root: string, rel: string) {
+  const realRoot = await fs.realpath(root);
+  const file = path.resolve(realRoot, rel);
+  const real = await fs.realpath(file).catch(() => null);
+  if (!real)
+    throw new StudioError(`Fichier introuvable dans le projet : ${rel}`);
+  if (
+    path.relative(realRoot, real).startsWith('..') ||
+    path.isAbsolute(path.relative(realRoot, real))
+  )
+    throw new StudioError(`Fichier hors du dossier du projet : ${rel}`);
+  // Windows ignore la casse : seul un vrai détour (lien) est refusé.
+  const same =
+    process.platform === 'win32'
+      ? real.toLowerCase() === file.toLowerCase()
+      : real === file;
+  if (!same) throw new StudioError(`Lien symbolique refusé : ${rel}`);
+  const stat = await fs.stat(real);
+  if (!stat.isFile() || stat.size > 1_000_000)
+    throw new StudioError(
+      `Fichier absent ou trop volumineux (1 Mo maximum) : ${rel}`,
+    );
+  return real;
+}
 
 // Registre des projets : .ds-studio/projects.json (privé) et un dossier d'état
 // par projet externe (.ds-studio/projects/<id>/). Déclarer un projet ne lit ni
@@ -79,9 +107,11 @@ export class ProjectRegistry {
     if (exists)
       try {
         // symbolic-ref marche aussi sans commit ; rev-parse couvre un HEAD détaché.
-        const branch = await git(root, ['symbolic-ref', '--short', 'HEAD']).catch(() =>
-          git(root, ['rev-parse', '--short', 'HEAD']),
-        );
+        const branch = await git(root, [
+          'symbolic-ref',
+          '--short',
+          'HEAD',
+        ]).catch(() => git(root, ['rev-parse', '--short', 'HEAD']));
         const remote = await git(root, ['remote', 'get-url', 'origin']).catch(
           () => undefined,
         );
@@ -104,6 +134,7 @@ export class ProjectRegistry {
           figma: p.figma,
           git: info,
           exists,
+          tokens: p.tokens,
         }
       : {
           id: builtinId,
@@ -114,6 +145,7 @@ export class ProjectRegistry {
           figma: { plugin: true, fileUrl: '' },
           git: info,
           exists,
+          tokens: [{ file: 'ds/tokens.css', format: 'css' }],
         };
   }
 
@@ -159,12 +191,29 @@ export class ProjectRegistry {
         root,
         id,
         createdAt: new Date().toISOString(),
+        tokens: [],
       };
       await fs.mkdir(this.stateDir(id), { recursive: true, mode: 0o700 });
       r.projects.push(project);
       r.active = id;
       return project;
     });
+  }
+
+  // Fichiers de tokens : dans le dossier du projet, jamais par un lien.
+  setSources(id: string, sources: TokenSource[]) {
+    return this.change(async (r) => {
+      const p = r.projects.find((x) => x.id === id);
+      if (!p) throw new StudioError('Projet inconnu ou intégré.', 404);
+      for (const s of sources) await resolveInside(p.root, s.file);
+      p.tokens = sources;
+    });
+  }
+
+  async project(id: string) {
+    const p = (await this.load()).projects.find((x) => x.id === id);
+    if (!p) throw new StudioError('Projet externe inconnu.', 404);
+    return p;
   }
 
   updateFigma(id: string, figma: Project['figma']) {

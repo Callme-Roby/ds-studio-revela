@@ -465,3 +465,51 @@ test('projets : ajout protégé (CSRF), bascule, retrait ; Revela toujours prés
   // Le plugin Figma (origine null) n'a pas accès aux projets.
   assert.equal((await fetch(origin + '/api/projects', { headers: { Origin: 'null' } })).status, 403);
 });
+
+test('variables d’un projet externe : sources, proposition, validation sur place, annulation', async (t) => {
+  const { origin, post } = await fixture(t);
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-tok-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  await mkdir(path.join(folder, 'styles'));
+  const css = ':root {\n  --brand: #3355FF;\n}\n';
+  await writeFile(path.join(folder, 'styles', 'tokens.css'), css);
+  await post('projects/add', {
+    name: 'Site',
+    root: folder,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  assert.equal(
+    (await post('projects/site/sources', { tokens: [{ file: '../x.css', format: 'css' }] })).status,
+    400,
+  );
+  assert.equal(
+    (await post('projects/site/sources', { tokens: [{ file: 'styles/tokens.css', format: 'css' }] })).status,
+    200,
+  );
+  const read = await (await fetch(origin + '/api/projects/site/tokens')).json();
+  assert.deepEqual(read.tokens.map((x: { id: string }) => x.id), ['styles/tokens.css#brand']);
+  assert.equal(
+    (await post('projects/site/tokens/propose', { changes: [{ id: 'styles/tokens.css#brand', value: 'red;}' }] })).status,
+    400,
+  );
+  const p = await (
+    await post('projects/site/tokens/propose', { changes: [{ id: 'styles/tokens.css#brand', value: '#112233' }] })
+  ).json();
+  assert.equal(await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'), css);
+  const entry = await (await post('projects/site/tokens/commit', { id: p.id })).json();
+  assert.equal(entry.revision, 1);
+  assert.equal(
+    await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'),
+    css.replace('#3355FF', '#112233'),
+  );
+  const undo = await (await post('projects/site/tokens/undo', { id: entry.id })).json();
+  await post('projects/site/tokens/commit', { id: undo.id });
+  assert.equal(await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'), css);
+  // Le plugin (origine null) n'y a pas accès.
+  assert.equal(
+    (await fetch(origin + '/api/projects/site/tokens', { headers: { Origin: 'null' } })).status,
+    403,
+  );
+});

@@ -845,3 +845,36 @@ dialog.add-project legend {
 .steps li span {
   display: block;
 }
+
+/* Projet externe : aperçu d'une valeur (couleur ou dimension), avant/après. */
+.ext-sample {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-bg);
+}
+.sample-chip {
+  width: 72px;
+  height: 48px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--ui-border-control);
+}
+.sample-bar {
+  display: block;
+  height: 10px;
+  min-width: 2px;
+  max-width: 100%;
+  border-radius: 3px;
+  background: var(--ui-text-muted);
+}
+.sample-bar.draft {
+  background: var(--ui-text);
+}
+.ext-sample:has(.sample-bar) {
+  flex-direction: column;
+  align-items: flex-start;
+}

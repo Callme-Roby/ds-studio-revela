@@ -571,3 +571,47 @@ test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', 
     await rm(folder, { recursive: true, force: true });
   }
 });
+
+test('projet externe : fichiers de tokens, variable modifiée sur place, annulée depuis l’historique', async ({
+  page,
+}) => {
+  const { mkdtemp, mkdir, readFile, rm, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-e2e-tokens-'));
+  const css = ':root {\n  --brand: #3355FF;\n  --space-md: 16px;\n}\n.dark { --brand: #99AAFF; }\n';
+  await mkdir(path.join(folder, 'src'));
+  await writeFile(path.join(folder, 'src', 'tokens.css'), css);
+  const boot = await (await page.request.get('/api/bootstrap')).json();
+  const headers = { 'X-DS-Studio': boot.csrf, Origin: 'http://127.0.0.1:4318' };
+  try {
+    await page.request.post('/api/projects/add', {
+      headers,
+      data: { name: 'Vitrine', root: folder, source: { type: 'local', url: '' }, figma: { plugin: false, fileUrl: '' } },
+    });
+    await page.goto('/#/apercu');
+    // Chemin saisi à la Windows : DS-Studio le normalise en src/tokens.css.
+    await page.getByLabel('Fichier de tokens à ajouter').fill(String.raw`src\tokens.css`);
+    await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+    await expect(page.getByText('2 token(s), 1 hors :root ignoré(s)')).toBeVisible();
+    await page.getByRole('link', { name: /Variables/ }).click();
+    await page.getByRole('button', { name: 'Sélectionner brand' }).click();
+    await page.getByLabel('Valeur du token').fill('#E5484D');
+    await page.getByRole('button', { name: 'Proposer', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Valider le changement' });
+    await expect(dialog).toContainText('#3355FF');
+    await expect(dialog).toContainText('#E5484D');
+    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(css);
+    await dialog.getByRole('button', { name: 'Valider et écrire dans le projet' }).click();
+    await expect(page.getByText(/Révision t1 écrite dans le projet/)).toBeVisible();
+    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(css.replace('#3355FF', '#E5484D'));
+    await page.getByRole('link', { name: /Historique/ }).click();
+    await page.getByRole('button', { name: 'Annuler t1' }).click();
+    await dialog.getByRole('button', { name: 'Valider et écrire dans le projet' }).click();
+    await expect(page.getByText('t2 · undo', { exact: false })).toBeVisible();
+    expect(await readFile(path.join(folder, 'src', 'tokens.css'), 'utf8')).toBe(css);
+  } finally {
+    await page.request.post('/api/projects/remove', { headers, data: { id: 'vitrine' } });
+    await rm(folder, { recursive: true, force: true });
+  }
+});

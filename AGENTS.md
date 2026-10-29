@@ -19,6 +19,8 @@ Lire [START_HERE.md](START_HERE.md). Le contexte appartient à l’étudiant.
   `preview-build.ts` (aperçu compilé en mémoire), `git.ts` (commit local facultatif).
 - `app/server/registry.ts` + `app/shared/projects.ts` : projets (Revela intégré,
   projets externes déclarés), un dossier d’état par projet, état Git en lecture seule.
+- `app/shared/token-sources.ts` + `app/server/external-tokens.ts` : tokens d’un
+  projet externe (CSS, SCSS, JSON) lus et réécrits sur place, propositions, journal.
 - `connectors/agents/claude-code.ts` : agent de code sur une copie temporaire de
   `ds/`, outils fichiers seulement ; ses différences deviennent une proposition.
 - `connectors/agents/` : Codex et Claude Code (profil sans outils) qualifiés, Gemini indisponible.

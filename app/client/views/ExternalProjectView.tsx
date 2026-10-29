@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { request } from '../api.js';
 import type { Projects } from '../ProjectSwitcher.js';
-import type { ProjectView } from '../../shared/projects.js';
+import type { ProjectView, TokenSource } from '../../shared/projects.js';
+import { formatOf } from '../../shared/token-sources.js';
+import { useExternalTokens } from './ExternalVariablesView.js';
 
 // Projet externe : fiche du projet (dossier, Git, Figma) et ce qui reste à
-// brancher. Les variables, composants et l'aperçu arrivent aux étapes D2 à D6.
+// brancher. Variables : fichiers de tokens déclarés ici (étape D2) ;
+// composants, aperçu, IA et Figma arrivent aux étapes D3 à D6.
 const steps = [
-  [
-    'D2',
-    'Variables',
-    'tokens du projet lus et réécrits sur place, avec diff et historique',
-  ],
   [
     'D3',
     'Composants et Git',
@@ -36,6 +34,10 @@ export default function ExternalProjectView({
   const [plugin, setPlugin] = useState(project.figma.plugin);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [newFile, setNewFile] = useState('');
+  const { data } = useExternalTokens(project);
+  const saveSources = (tokens: TokenSource[], done: string) =>
+    act(`projects/${project.id}/sources`, { tokens }, done);
   async function act(route: string, body: unknown, done: string) {
     setError('');
     setNotice('');
@@ -83,6 +85,67 @@ export default function ExternalProjectView({
             Source : <code className="path">{project.source.url}</code>
           </p>
         )}
+      </article>
+      <article className="card">
+        <h2>Fichiers de tokens</h2>
+        <p className="muted small">
+          Variables CSS (:root), SCSS ($var) ou JSON (plat ou DTCG), relatifs au
+          dossier du projet. DS-Studio les lit et réécrit seulement les valeurs
+          validées.
+        </p>
+        <ul className="usage-list">
+          {project.tokens.map((s) => {
+            const info = data?.sources.find((x) => x.file === s.file);
+            return (
+              <li key={s.file}>
+                <code>{s.file}</code>
+                <span>
+                  {info?.error
+                    ? info.error
+                    : info
+                      ? `${info.count} token(s)${info.ignored ? `, ${info.ignored} hors :root ignoré(s)` : ''}`
+                      : '…'}
+                </span>
+                <button
+                  className="link-button"
+                  onClick={() =>
+                    void saveSources(
+                      project.tokens.filter((x) => x.file !== s.file),
+                      'Fichier retiré (rien supprimé du projet).',
+                    )
+                  }
+                >
+                  Retirer
+                </button>
+              </li>
+            );
+          })}
+          {!project.tokens.length && (
+            <li className="muted">Aucun fichier déclaré.</li>
+          )}
+        </ul>
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const file = newFile.trim().replace(/\\/g, '/');
+            const format = formatOf(file);
+            if (!format)
+              return setError('Fichier .css, .scss ou .json attendu.');
+            void saveSources(
+              [...project.tokens, { file, format }],
+              `${file} ajouté.`,
+            ).then(() => setNewFile(''));
+          }}
+        >
+          <input
+            aria-label="Fichier de tokens à ajouter"
+            value={newFile}
+            onChange={(e) => setNewFile(e.target.value)}
+            placeholder="src/styles/tokens.css"
+          />
+          <button disabled={!newFile.trim()}>Ajouter</button>
+        </form>
       </article>
       <article className="card">
         <h2>Figma</h2>

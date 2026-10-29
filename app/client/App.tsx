@@ -3,6 +3,9 @@ import ProjectBrief from './ProjectBrief.js';
 import Assistant from './Assistant.js';
 import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
 import ExternalProjectView from './views/ExternalProjectView.js';
+import ExternalVariablesView, {
+  ExternalHistoryView,
+} from './views/ExternalVariablesView.js';
 import TokenDiffDialog from './TokenDiffDialog.js';
 import CodeDiffDialog from './CodeDiffDialog.js';
 import PreviewView from './views/PreviewView.js';
@@ -78,6 +81,12 @@ const views = [
   },
 ] as const;
 type View = (typeof views)[number]['id'];
+// Projet externe : parties disponibles à ce stade (D2).
+const externalViews = [
+  { id: 'apercu', label: 'Vue d’ensemble', icon: '◎' },
+  { id: 'variables', label: 'Variables', icon: '◐' },
+  { id: 'historique', label: 'Historique', icon: '↺' },
+] as const;
 const readHash = (): { view: View; item?: string } => {
   const [view, item] = location.hash.replace(/^#\/?/, '').split('/');
   return views.some((v) => v.id === view)
@@ -290,6 +299,9 @@ export default function App() {
   );
   const external =
     activeProject && !activeProject.builtin ? activeProject : undefined;
+  const externalView = externalViews.some((v) => v.id === route.view)
+    ? route.view
+    : 'apercu';
   const codeRevision = codeHistory[0]?.revision ?? 0;
   return (
     <div className="shell">
@@ -319,14 +331,19 @@ export default function App() {
         {external ? (
           <nav aria-label="Parties du projet">
             <ul>
-              <li>
-                <a href="#/apercu" aria-current="page">
-                  <span className="nav-icon" aria-hidden="true">
-                    ◎
-                  </span>
-                  Vue d’ensemble
-                </a>
-              </li>
+              {externalViews.map((v) => (
+                <li key={v.id}>
+                  <a
+                    href={`#/${v.id}`}
+                    aria-current={externalView === v.id ? 'page' : undefined}
+                  >
+                    <span className="nav-icon" aria-hidden="true">
+                      {v.icon}
+                    </span>
+                    {v.label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </nav>
         ) : (
@@ -388,7 +405,9 @@ export default function App() {
           <header className="main-head">
             <div>
               <h1 id="main-title" tabIndex={-1}>
-                {external.name}
+                {externalView === 'apercu'
+                  ? external.name
+                  : `${externalViews.find((v) => v.id === externalView)!.label} · ${external.name}`}
               </h1>
               <p className="muted">
                 Projet externe ·{' '}
@@ -398,11 +417,19 @@ export default function App() {
               </p>
             </div>
           </header>
-          <ExternalProjectView
-            key={external.id}
-            project={external}
-            onChange={setProjects}
-          />
+          {externalView === 'apercu' && (
+            <ExternalProjectView
+              key={external.id}
+              project={external}
+              onChange={setProjects}
+            />
+          )}
+          {externalView === 'variables' && (
+            <ExternalVariablesView key={external.id} project={external} />
+          )}
+          {externalView === 'historique' && (
+            <ExternalHistoryView key={external.id} project={external} />
+          )}
         </main>
       ) : (
         <main className="main">

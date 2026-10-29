@@ -24,6 +24,8 @@ import { gitCommitter } from './git.js';
 import { figmaSpecSchema, type FigmaSpec } from '../shared/figma-spec.js';
 import { atomicWrite, readPrivate } from './files.js';
 import { ProjectRegistry } from './registry.js';
+import { ExternalTokens } from './external-tokens.js';
+import { tokenSourceSchema } from '../shared/projects.js';
 import {
   newProjectSchema,
   projectSchema as dsProjectSchema,
@@ -188,13 +190,30 @@ export async function createStudioServer(options: {
           if (url.pathname === '/api/project')
             return send(200, await project.read());
           if (url.pathname === '/api/state') return send(200, store.snapshot());
-          if (url.pathname === '/api/code') return send(200, await code.status());
+          if (url.pathname === '/api/code')
+            return send(200, await code.status());
           if (url.pathname === '/api/figma/tokens') {
-            if (figmaPlugin) res.setHeader('Access-Control-Allow-Origin', 'null');
+            if (figmaPlugin)
+              res.setHeader('Access-Control-Allow-Origin', 'null');
             const { revision, tokens } = store.snapshot();
             return send(200, { revision, tokens });
           }
-          if (url.pathname === '/api/projects') return send(200, await projects.list());
+          if (url.pathname === '/api/projects')
+            return send(200, await projects.list());
+          const projectTokens = url.pathname.match(
+            /^\/api\/projects\/([a-z0-9-]{1,40})\/tokens$/,
+          );
+          if (projectTokens) {
+            const id = projectTokens[1];
+            const service = new ExternalTokens(
+              await projects.project(id),
+              projects.stateDir(id),
+            );
+            return send(200, {
+              ...(await service.read()),
+              history: await service.history(),
+            });
+          }
           if (url.pathname === '/api/components')
             return send(200, {
               files: await components.list(),
@@ -207,21 +226,29 @@ export async function createStudioServer(options: {
               .string()
               .regex(componentPath)
               .parse(url.searchParams.get('path'));
-            return send(200, { path: file, content: await components.read(file) });
+            return send(200, {
+              path: file,
+              content: await components.read(file),
+            });
           }
           if (url.pathname === '/api/figma/spec/status') {
-            if (!figmaSpec) throw new StudioError('Aucun export Figma préparé.', 404);
+            if (!figmaSpec)
+              throw new StudioError('Aucun export Figma préparé.', 404);
             return send(200, {
               revision: figmaSpec.revision,
               codeRevision: figmaSpec.codeRevision,
               date: figmaSpec.date,
               components: figmaSpec.components.length,
-              variants: figmaSpec.components.reduce((n, c) => n + c.variants.length, 0),
+              variants: figmaSpec.components.reduce(
+                (n, c) => n + c.variants.length,
+                0,
+              ),
               screens: figmaSpec.screens.length,
             });
           }
           if (url.pathname === '/api/figma/spec') {
-            if (figmaPlugin) res.setHeader('Access-Control-Allow-Origin', 'null');
+            if (figmaPlugin)
+              res.setHeader('Access-Control-Allow-Origin', 'null');
             if (!figmaSpec)
               throw new StudioError(
                 'Aucun export Figma préparé : DS-Studio → Intégrations → Préparer l’export Figma.',
@@ -298,13 +325,17 @@ export async function createStudioServer(options: {
         }
         if (url.pathname === '/api/commit') {
           const b = z
-            .object({ id: z.string().uuid(), acknowledged: z.boolean().optional() })
+            .object({
+              id: z.string().uuid(),
+              acknowledged: z.boolean().optional(),
+            })
             .strict()
             .parse(body);
           // Les contrôles Revela s'imposent ici aussi : une proposition, même venue
           // d'une IA, ne passe pas un problème introduit sans accord explicite.
           const pending = store.pending(b.id);
-          const checks = pending && auditProposal(store.snapshot().tokens, pending);
+          const checks =
+            pending && auditProposal(store.snapshot().tokens, pending);
           if (checks?.introduced.length && !b.acknowledged)
             throw new StudioError(
               `Cette proposition introduit ${checks.introduced.length} problème(s) : cochez l’accord explicite dans le diff.`,
@@ -314,23 +345,77 @@ export async function createStudioServer(options: {
           // La révision est acquise ; le code suit, sans pouvoir l'annuler.
           return send(200, { state, code: await code.write() });
         }
+        const projectRoute = url.pathname.match(
+          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|tokens\/propose|tokens\/commit|tokens\/undo)$/,
+        );
+        if (projectRoute) {
+          const [, id, action] = projectRoute;
+          if (action === 'sources') {
+            const b = z
+              .object({ tokens: z.array(tokenSourceSchema).max(10) })
+              .strict()
+              .parse(body);
+            await projects.setSources(id, b.tokens);
+            return send(200, await projects.list());
+          }
+          const service = new ExternalTokens(
+            await projects.project(id),
+            projects.stateDir(id),
+          );
+          if (action === 'tokens/propose') {
+            const b = z
+              .object({
+                changes: z
+                  .array(
+                    z
+                      .object({
+                        id: z.string().max(400),
+                        value: z.string().max(200),
+                      })
+                      .strict(),
+                  )
+                  .min(1)
+                  .max(50),
+                message: z.string().max(300).default(''),
+              })
+              .strict()
+              .parse(body);
+            return send(
+              200,
+              await service.propose(b.changes, 'manual', b.message),
+            );
+          }
+          const b = z.object({ id: z.string().uuid() }).strict().parse(body);
+          if (action === 'tokens/commit')
+            return send(200, await service.commit(b.id));
+          return send(200, await service.undo(b.id));
+        }
         if (url.pathname === '/api/projects/add') {
           await projects.add(newProjectSchema.parse(body));
           return send(200, await projects.list());
         }
         if (url.pathname === '/api/projects/active') {
-          const b = z.object({ id: z.string().max(40) }).strict().parse(body);
+          const b = z
+            .object({ id: z.string().max(40) })
+            .strict()
+            .parse(body);
           await projects.setActive(b.id);
           return send(200, await projects.list());
         }
         if (url.pathname === '/api/projects/remove') {
-          const b = z.object({ id: z.string().max(40) }).strict().parse(body);
+          const b = z
+            .object({ id: z.string().max(40) })
+            .strict()
+            .parse(body);
           await projects.remove(b.id);
           return send(200, await projects.list());
         }
         if (url.pathname === '/api/projects/figma') {
           const b = z
-            .object({ id: z.string().max(40), figma: dsProjectSchema.shape.figma })
+            .object({
+              id: z.string().max(40),
+              figma: dsProjectSchema.shape.figma,
+            })
             .strict()
             .parse(body);
           await projects.updateFigma(b.id, b.figma);
@@ -338,7 +423,10 @@ export async function createStudioServer(options: {
         }
         if (url.pathname === '/api/components/propose') {
           const b = codeProposeSchema.parse(body);
-          return send(200, await components.propose(b.changes, 'manual', b.message));
+          return send(
+            200,
+            await components.propose(b.changes, 'manual', b.message),
+          );
         }
         if (url.pathname === '/api/components/commit') {
           const b = z
@@ -384,11 +472,23 @@ export async function createStudioServer(options: {
             const rules = await fs
               .readFile(path.join(root, 'workspace', 'DESIGN_RULES.md'), 'utf8')
               .catch(() => '');
-            const reply = await editor.edit(b.message, { rules }, controller.signal);
+            const reply = await editor.edit(
+              b.message,
+              { rules },
+              controller.signal,
+            );
             const proposal = reply.changes.length
-              ? await components.propose(reply.changes, 'claude', b.message.slice(0, 200))
+              ? await components.propose(
+                  reply.changes,
+                  'claude',
+                  b.message.slice(0, 200),
+                )
               : null;
-            return send(200, { message: reply.message, denied: reply.denied, proposal });
+            return send(200, {
+              message: reply.message,
+              denied: reply.denied,
+              proposal,
+            });
           } finally {
             busy = false;
             active.delete(controller);
@@ -460,7 +560,11 @@ export async function createStudioServer(options: {
               controller.signal,
             );
             const proposal = reply.changes.length
-              ? store.propose(b.revision, reply.changes, b.agent as 'codex' | 'claude')
+              ? store.propose(
+                  b.revision,
+                  reply.changes,
+                  b.agent as 'codex' | 'claude',
+                )
               : null;
             return send(200, { message: reply.message, proposal });
           } finally {

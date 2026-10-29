@@ -413,3 +413,30 @@ cocher séparées de leur texte à 480 px, corrigé avec la nouvelle DA.
 refusé), test navigateur (ajout avec erreur de chemin puis succès, vue
 d’ensemble, retour à Revela) ; 78 tests unitaires et API, 16 navigateur.
 Un échec intermittent du test du lanceur, non reproduit sur 3 relances.
+
+## 2026-10-29 — Phase D2 : variables d’un projet externe
+
+**Choix.** La source de vérité reste les fichiers du projet : pas de copie des
+tokens dans DS-Studio. Lecteurs/écrivains maison (aucun code de l’IA exécuté) :
+variables CSS de `:root`/`html`/`:host` (les autres sélecteurs, ex. thème
+sombre, sont comptés mais pas édités), variables SCSS de premier niveau, JSON
+plat ou DTCG (`$value`, `$type`). Écriture par remplacement de la valeur à sa
+position exacte : le reste du fichier est conservé octet pour octet (JSON :
+indentation et nombres conservés). Validation : chaque fichier doit être
+identique à celui de la proposition (empreinte), puis réécriture atomique,
+relecture des valeurs, journal `token-history.json` dans le dossier d’état du
+projet (révisions t, annulables).
+
+**Garde-fous.** Fichiers relatifs au projet, sans `..`, résolus par `realpath`
+(un lien qui sort du projet est refusé ; casse ignorée sous Windows), 1 Mo
+maximum ; valeurs vérifiées par type (couleur, dimension) et sans `;`, `{`, `}`
+ni retour à la ligne ; une proposition d’un projet ne se valide pas dans un autre.
+
+**Preuves.** 5 tests des lecteurs/écrivains, 5 du service (conflit, chemins,
+valeurs, projets croisés), 1 HTTP, 1 navigateur (déclaration des fichiers,
+modification, fichier vérifié sur disque, annulation). Vérifié à l’écran.
+
+**Limites.** Pas encore de contrôles de contraste pour un projet externe (les
+paires de couleurs seront proposées par l’IA en D5) ; pas d’aperçu (D4).
+Deux tests navigateur ont dépassé leur délai lors d’une exécution sous forte
+charge (1 min 48 au lieu de 19 s), puis sont passés.

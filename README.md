@@ -96,9 +96,16 @@ le dossier du projet sur ce poste (chemin absolu), éventuellement l’URL GitHu
 et le fichier Figma, et cochez la case si le projet est synchronisé par le
 plugin. DS-Studio enregistre le projet (`.ds-studio/projects.json`, privé) sans
 rien lire ni exécuter de son contenu, et affiche son état Git en lecture seule.
-Les variables, composants, aperçu et l’analyse par l’IA d’un projet externe
-arrivent par étapes (feuille de route, phase D). Retirer un projet ne supprime
-aucun fichier.
+Retirer un projet ne supprime aucun fichier.
+
+**Variables d’un projet externe** : dans sa vue d’ensemble, déclarez ses
+fichiers de tokens (relatifs à son dossier) : variables CSS de `:root`, SCSS
+(`$var` de premier niveau) ou JSON (plat ou DTCG). La vue **Variables** les
+liste par fichier et par famille ; une proposition passe par le même diff,
+puis seules les valeurs validées sont réécrites **sur place** (le reste du
+fichier est conservé octet pour octet), relues et journalisées (t1, t2…,
+annulables dans **Historique**). Composants, aperçu et analyse par l’IA
+arrivent aux étapes D3 à D6.
 
 ## Écrire les tokens de Revela dans un autre dossier
 

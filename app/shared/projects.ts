@@ -43,9 +43,31 @@ export const newProjectSchema = z
   })
   .strict();
 
+// Fichiers de tokens du projet, relatifs à son dossier.
+export const tokenSourceSchema = z
+  .object({
+    file: z
+      .string()
+      .trim()
+      .min(1)
+      .max(300)
+      .refine(
+        (f) => !/^([a-zA-Z]:|[\/])/.test(f) && !f.split(/[\/]/).includes('..'),
+        'Chemin relatif au dossier du projet, sans « .. ».',
+      )
+      .refine(
+        (f) => /.(css|scss|json)$/.test(f),
+        'Fichier .css, .scss ou .json attendu.',
+      ),
+    format: z.enum(['css', 'scss', 'json']),
+  })
+  .strict();
+export type TokenSource = z.infer<typeof tokenSourceSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
   createdAt: z.string().max(40),
+  tokens: z.array(tokenSourceSchema).max(10).default([]),
 });
 export type Project = z.infer<typeof projectSchema>;
 export type NewProject = z.infer<typeof newProjectSchema>;
@@ -69,4 +91,5 @@ export type ProjectView = {
   figma: Project['figma'];
   git?: { branch: string; remote?: string; dirty: number } | null;
   exists: boolean;
+  tokens: TokenSource[];
 };
