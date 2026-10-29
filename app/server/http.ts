@@ -43,6 +43,11 @@ import {
   projectSchema as dsProjectSchema,
 } from '../shared/projects.js';
 import { ClaudeCodeEditor } from '../../connectors/agents/claude-code.js';
+import {
+  ProjectCodeEditor,
+  catalogRequest,
+  catalogTarget,
+} from '../../connectors/agents/project-code.js';
 import type { RecordInfo } from '../../scripts/runtime.mjs';
 
 export async function createStudioServer(options: {
@@ -58,6 +63,8 @@ export async function createStudioServer(options: {
   dsDir?: string;
   components?: ComponentStore;
   editor?: Pick<ClaudeCodeEditor, 'edit'>;
+  // Agent de code des projets externes ; remplaçable en test.
+  projectEditor?: Pick<ProjectCodeEditor, 'edit'>;
   // Recompilation de dist/ après validation de code (par défaut hors mode dev).
   rebuild?: () => Promise<void>;
   control?: { record: RecordInfo; stop: () => void };
@@ -90,6 +97,7 @@ export async function createStudioServer(options: {
     options.rebuild ??
     (options.dev || options.dsDir ? undefined : preview.rebuildDist);
   const editor = options.editor ?? new ClaudeCodeEditor(dsDir);
+  const projectEditor = options.projectEditor ?? new ProjectCodeEditor();
   // Export Figma (composants et écrans) préparé par l'atelier, lu par le plugin.
   const specFile = path.join(store.directory, 'figma-spec.json');
   let figmaSpec: FigmaSpec | null = await readPrivate(specFile, 8_000_000)
@@ -108,9 +116,18 @@ export async function createStudioServer(options: {
         'Aucun dossier de composants déclaré pour ce projet.',
         409,
       );
-    const key = JSON.stringify([p.root, p.components]);
+    // Page catalogue de l'app (si c'est un chemin) : éditable comme un composant.
+    const catalog = p.preview.catalog.startsWith('/')
+      ? await catalogTarget(p.root, p.preview.catalog)
+      : null;
+    const dirs = [
+      ...p.components.map((c) => c.dir),
+      ...(catalog ? [catalog.dir] : []),
+    ];
+    const key = JSON.stringify([p.root, p.components, catalog?.dir]);
     const cached = externalStores.get(id);
-    if (cached?.key === key) return { project: p, store: cached.store };
+    if (cached?.key === key)
+      return { project: p, store: cached.store, catalog };
     const store = new ComponentStore(
       p.root,
       projects.stateDir(id),
@@ -118,12 +135,18 @@ export async function createStudioServer(options: {
       undefined,
       gitCommitter(p.root),
       {
-        dirs: p.components.map((c) => c.dir),
-        extensions: [...new Set(p.components.flatMap((c) => c.extensions))],
+        dirs,
+        extensions: [
+          ...new Set([
+            ...p.components.flatMap((c) => c.extensions),
+            'tsx',
+            'css',
+          ]),
+        ],
       },
     );
     externalStores.set(id, { key, store });
-    return { project: p, store };
+    return { project: p, store, catalog };
   }
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
@@ -552,7 +575,7 @@ export async function createStudioServer(options: {
           return send(200, { state, code: await code.write() });
         }
         const projectRoute = url.pathname.match(
-          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push)$/,
+          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push|catalog\/generate)$/,
         );
         if (projectRoute) {
           const [, id, action] = projectRoute;
@@ -585,6 +608,65 @@ export async function createStudioServer(options: {
                 ? gitFetch(projectRoot)
                 : gitPush(projectRoot)),
             );
+          }
+          if (action === 'catalog/generate') {
+            const b = z
+              .object({ route: z.string().regex(/^\/[a-z0-9-]{1,40}$/) })
+              .strict()
+              .parse(body);
+            const p = await projects.project(id);
+            if (!p.components.length)
+              throw new StudioError(
+                'Déclarez d’abord les dossiers de composants.',
+                409,
+              );
+            const target = await catalogTarget(p.root, b.route);
+            if (!target)
+              throw new StudioError(
+                'Routeur non reconnu (Next.js attendu : app/ ou pages/). Créez la page à la main et indiquez son chemin.',
+                409,
+              );
+            if (busy)
+              throw new StudioError('Une demande IA est déjà en cours.', 429);
+            const status = await adapters.claude.status();
+            if (!status.available) throw new StudioError(status.detail, 503);
+            // Le chemin du catalogue rend son dossier éditable (sur diff).
+            if (p.preview.catalog !== b.route)
+              await projects.setPreview(id, { ...p.preview, catalog: b.route });
+            busy = true;
+            const controller = new AbortController();
+            active.add(controller);
+            const cancel = () => controller.abort();
+            res.once('close', cancel);
+            try {
+              const reply = await projectEditor.edit(
+                p,
+                catalogRequest(
+                  target,
+                  b.route,
+                  p.components.map((c) => c.dir),
+                ),
+                (rel) => rel.startsWith(`${target.dir}/`),
+                controller.signal,
+              );
+              const { store: cs } = await externalComponents(id);
+              const proposal = reply.changes.length
+                ? await cs.propose(
+                    reply.changes,
+                    'claude',
+                    `Page catalogue ${b.route}`,
+                  )
+                : null;
+              return send(200, {
+                message: reply.message,
+                denied: reply.denied,
+                proposal,
+              });
+            } finally {
+              busy = false;
+              active.delete(controller);
+              res.off('close', cancel);
+            }
           }
           if (action.startsWith('components/')) {
             const { store: cs } = await externalComponents(id);

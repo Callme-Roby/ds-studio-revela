@@ -471,6 +471,9 @@ export default function App() {
               key={external.id}
               project={external}
               isRepo={!!external.git}
+              onProjectChanged={() =>
+                void request<Projects>('projects').then(setProjects)
+              }
             />
           )}
           {externalView === 'historique' && (

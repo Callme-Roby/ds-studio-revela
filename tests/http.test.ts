@@ -870,3 +870,103 @@ test('plugin multi-projets et aperçu : projets cochés seulement, adresses loca
     (await fetch(origin + '/')).headers.get('content-security-policy') ?? '';
   assert.match(csp, /frame-src 'self' http:\/\/localhost:\*/);
 });
+
+test('page catalogue générée par l’agent (faux CLI) : copie du projet, seul le dossier de la page proposé', async (t) => {
+  const { ProjectCodeEditor } =
+    await import('../connectors/agents/project-code.js');
+  const directory = await mkdtemp(path.join(tmpdir(), 'ds-http-cat-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  const site = path.join(directory, 'site');
+  await mkdir(path.join(site, 'src', 'app'), { recursive: true });
+  await mkdir(path.join(site, 'src', 'components'), { recursive: true });
+  await mkdir(path.join(site, 'node_modules', 'lourd'), { recursive: true });
+  await writeFile(
+    path.join(site, 'src', 'components', 'Card.tsx'),
+    'export default function Card() { return <div />; }\n',
+  );
+  await writeFile(path.join(site, 'next.config.ts'), 'export default {};\n');
+  await writeFile(path.join(site, 'node_modules', 'lourd', 'index.js'), 'x');
+  const store = new Store(path.join(directory, 'data'), seed);
+  await store.init();
+  const fake = path.join(root, 'tests/fixtures/fake-claude.mjs');
+  const app = await createStudioServer({
+    root,
+    store,
+    claude: new ClaudeAdapter(process.execPath, [fake, 'ok']),
+    projectEditor: new ProjectCodeEditor(process.execPath, [fake, 'catalog']),
+  });
+  await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', r));
+  t.after(() => app.close());
+  const origin = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
+  const { csrf } = await (await fetch(origin + '/api/bootstrap')).json();
+  const post = (route: string, body: unknown) =>
+    fetch(origin + '/api/' + route, {
+      method: 'POST',
+      headers: {
+        Origin: origin,
+        'Content-Type': 'application/json',
+        'X-DS-Studio': csrf,
+      },
+      body: JSON.stringify(body),
+    });
+  await post('projects/add', {
+    name: 'Site',
+    root: site,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  assert.equal(
+    (await post('projects/site/catalog/generate', { route: '/ds-studio' }))
+      .status,
+    409,
+  );
+  await post('projects/site/component-dirs', {
+    components: [{ dir: 'src/components', extensions: ['tsx'] }],
+  });
+  assert.equal(
+    (await post('projects/site/catalog/generate', { route: '../x' })).status,
+    400,
+  );
+  const r = await (
+    await post('projects/site/catalog/generate', { route: '/ds-studio' })
+  ).json();
+  assert.equal(r.message, 'Page catalogue créée. Demande reçue : ok.');
+  assert.deepEqual(
+    r.proposal.files.map((f: { path: string }) => f.path),
+    ['src/app/ds-studio/page.tsx'],
+  );
+  // Rien d'écrit avant validation ; le projet réel n'a pas bougé.
+  await assert.rejects(() =>
+    readFile(path.join(site, 'src/app/ds-studio/page.tsx')),
+  );
+  assert.equal(
+    await readFile(path.join(site, 'next.config.ts'), 'utf8'),
+    'export default {};\n',
+  );
+  const projectsNow = await (await fetch(origin + '/api/projects')).json();
+  assert.equal(projectsNow.projects[1].preview.catalog, '/ds-studio');
+  const done = await (
+    await post('projects/site/components/commit', {
+      id: r.proposal.id,
+      git: false,
+    })
+  ).json();
+  assert.equal(done.entry.revision, 1);
+  assert.match(
+    await readFile(path.join(site, 'src/app/ds-studio/page.tsx'), 'utf8'),
+    /section id="Card"/,
+  );
+  assert.match(
+    await readFile(path.join(site, 'src/components/Card.tsx'), 'utf8'),
+    /<div \/>/,
+  );
+  const files = await (
+    await fetch(origin + '/api/projects/site/components')
+  ).json();
+  assert.ok(
+    files.files.some(
+      (f: { path: string }) => f.path === 'src/app/ds-studio/page.tsx',
+    ),
+  );
+});

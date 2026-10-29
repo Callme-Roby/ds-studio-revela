@@ -1,5 +1,5 @@
 // Faux CLI Claude pour les tests : le premier argument choisit le scénario.
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const [mode, ...args] = process.argv.slice(2);
 if (args.includes('--version')) {
@@ -46,6 +46,22 @@ process.stdin.on('end', () => {
       num_turns: 6,
       permission_denials: [{ tool_name: 'Write' }],
       result: 'Boutons plus arrondis ; composant Ghost ajouté.',
+    });
+  } else if (mode === 'catalog') {
+    // Page catalogue dans la copie du projet ; tente aussi de toucher un
+    // composant et la config : seule la page doit être proposée.
+    mkdirSync('src/app/ds-studio', { recursive: true });
+    writeFileSync(
+      'src/app/ds-studio/page.tsx',
+      'import Card from "@/components/Card";\nexport default function Page() {\n  return <section id="Card"><h2>Card</h2><Card /></section>;\n}\n',
+    );
+    writeFileSync('src/components/Card.tsx', 'export default function Card() { return null; }\n');
+    writeFileSync('next.config.ts', '// modifié');
+    out({
+      is_error: false,
+      num_turns: 8,
+      permission_denials: [],
+      result: `Page catalogue créée. Demande reçue : ${input.includes('src/app/ds-studio/page.tsx') ? 'ok' : 'chemin absent'}.`,
     });
   } else if (mode === 'leak') {
     process.stderr.write('PRIVATE_TOKEN_DETAIL');

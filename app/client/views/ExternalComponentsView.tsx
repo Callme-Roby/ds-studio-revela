@@ -14,9 +14,11 @@ type Files = { files: { path: string; size: number }[]; history: CodeEntry[] };
 export default function ExternalComponentsView({
   project,
   isRepo,
+  onProjectChanged,
 }: {
   project: ProjectView;
   isRepo: boolean;
+  onProjectChanged?: () => void;
 }) {
   const [data, setData] = useState<Files>();
   const [file, setFile] = useState<string>();
@@ -195,6 +197,26 @@ export default function ExternalComponentsView({
                 stories={stories}
                 story={story}
                 onStory={setStory}
+                busy={busy}
+                onGenerate={() =>
+                  void run(
+                    'Claude crée la page catalogue sur une copie du projet (1 à 3 min)…',
+                    async () => {
+                      const r = await request<{
+                        message: string;
+                        denied: number;
+                        proposal: CodeProposal | null;
+                      }>(`projects/${project.id}/catalog/generate`, {
+                        route: '/ds-studio',
+                      });
+                      onProjectChanged?.();
+                      setNotice(
+                        `Claude : ${r.message}${r.proposal ? '' : ' (aucun fichier créé)'}`,
+                      );
+                      if (r.proposal) setProposal(r.proposal);
+                    },
+                  )
+                }
               />
             ) : (
               <div className="detail-body">
@@ -285,12 +307,16 @@ function ComponentPreview({
   stories,
   story,
   onStory,
+  busy,
+  onGenerate,
 }: {
   project: ProjectView;
   file: string;
   stories?: Story[];
   story: string;
   onStory: (id: string) => void;
+  busy: string;
+  onGenerate: () => void;
 }) {
   const { url, catalog } = project.preview;
   const name = componentName(file);
@@ -303,6 +329,20 @@ function ComponentPreview({
           composants (ex. <code>/ds-studio</code>, une section{' '}
           <code>#{name}</code> par composant) ou l’adresse de Storybook.
         </p>
+        <p className="muted small">
+          Ou laissez Claude créer cette page (<code>/ds-studio</code>) : il lit
+          le projet sur une copie, ne modifie que le dossier de la page, et vous
+          validez le diff. Page non indexée et désactivée en production.
+        </p>
+        <div className="row">
+          <button
+            className="studio-primary"
+            onClick={onGenerate}
+            disabled={!!busy}
+          >
+            {busy || 'Générer la page catalogue avec Claude'}
+          </button>
+        </div>
       </div>
     );
   if (/^https?:/.test(catalog)) {

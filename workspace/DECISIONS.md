@@ -555,3 +555,27 @@ dans le catalogue, instructions quand le serveur s’arrête), 20 lanceur.
 
 **Limites.** Pas de page catalogue générée automatiquement (prévu avec l’agent
 de code des projets externes, D5) ; pas d’essai encore dans Figma réel.
+
+## 2026-10-29 — Page catalogue générée par Claude (projet externe)
+
+**Demande de l’étudiant.** Générer avec Claude une page `/ds-studio` dans CDPP
+(Next.js) pour voir chaque composant, proposée sur diff avant écriture.
+
+**Choix.** Agent de code des projets externes : copie du projet dans un
+dossier temporaire (sans node_modules, .git, sorties de build ni fichiers de
+plus de 2 Mo), outils de lecture et d’édition seulement, 10 min au plus.
+Seules les différences dans le dossier de la page (`src/app/ds-studio/` pour
+l’App Router, `pages/ds-studio/` sinon) deviennent une proposition ; toute
+autre modification de la copie est jetée. Consigne : une section
+`#NomDuComposant` par composant, props d’exemple tirées du code et des pages,
+`robots: noindex`, `notFound()` en production. Le chemin devient le catalogue
+d’aperçu du projet ; la page est ensuite éditable comme un composant.
+
+**Preuves.** Test HTTP avec un faux CLI qui écrit la page mais aussi un
+composant et la config : seule la page est proposée, rien n’est écrit avant
+validation, puis la page est écrite et listée ; refus sans dossier de
+composants ou avec un chemin invalide. 106 tests unitaires et API,
+20 navigateur, 20 lanceur.
+
+**Limites.** Génération réelle à lancer par l’étudiant (son quota Claude) ;
+routeurs autres que Next.js non pris en charge pour la génération.
