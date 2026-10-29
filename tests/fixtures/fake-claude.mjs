@@ -63,6 +63,22 @@ process.stdin.on('end', () => {
       permission_denials: [],
       result: `Page catalogue créée. Demande reçue : ${input.includes('src/app/ds-studio/page.tsx') ? 'ok' : 'chemin absent'}.`,
     });
+  } else if (mode === 'assist') {
+    // Assistant d'un projet externe : une valeur de token changée, un token
+    // ajouté (ignoré), un composant modifié, la config touchée (hors périmètre).
+    const css = readFileSync('src/app/globals.css', 'utf8');
+    writeFileSync(
+      'src/app/globals.css',
+      css.replace('#111111', '#222222').replace('}', '  --nouveau: 1px;\n}'),
+    );
+    writeFileSync('src/components/Card.tsx', 'export default function Card() { return <article />; }\n');
+    writeFileSync('next.config.ts', '// modifié');
+    out({
+      is_error: false,
+      num_turns: 5,
+      permission_denials: [],
+      result: `Texte plus doux. Périmètre : ${input.includes('src/app/globals.css (tokens)') ? 'ok' : 'absent'}.`,
+    });
   } else if (mode === 'leak') {
     process.stderr.write('PRIVATE_TOKEN_DETAIL');
     process.exit(1);

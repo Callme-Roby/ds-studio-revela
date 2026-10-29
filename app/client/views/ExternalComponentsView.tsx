@@ -15,10 +15,15 @@ export default function ExternalComponentsView({
   project,
   isRepo,
   onProjectChanged,
+  incoming,
+  onIncoming,
 }: {
   project: ProjectView;
   isRepo: boolean;
   onProjectChanged?: () => void;
+  // Proposition venue de l'assistant IA, ouverte dans le diff.
+  incoming?: CodeProposal;
+  onIncoming?: () => void;
 }) {
   const [data, setData] = useState<Files>();
   const [file, setFile] = useState<string>();
@@ -43,6 +48,11 @@ export default function ExternalComponentsView({
   }, [project.id, catalog]);
   const [proposal, setProposal] = useState<CodeProposal>();
   const [busy, setBusy] = useState('');
+  useEffect(() => {
+    if (!incoming) return;
+    setProposal(incoming);
+    onIncoming?.();
+  }, [incoming]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const base = `projects/${project.id}/components`;

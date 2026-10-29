@@ -58,8 +58,13 @@ const family = {
 // modifiées par proposition, diff et validation, réécrites sur place.
 export default function ExternalVariablesView({
   project,
+  incoming,
+  onIncoming,
 }: {
   project: ProjectView;
+  // Proposition venue de l'assistant IA, ouverte dans le diff.
+  incoming?: TokenProposal;
+  onIncoming?: () => void;
 }) {
   const { data, error, refresh } = useExternalTokens(project);
   const [selected, setSelected] = useState<string>();
@@ -68,6 +73,11 @@ export default function ExternalVariablesView({
   const [tab, setTab] = useState<'apercu' | 'code'>('apercu');
   const [proposal, setProposal] = useState<TokenProposal>();
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!incoming) return;
+    setProposal(incoming);
+    onIncoming?.();
+  }, [incoming]);
   const [message, setMessage] = useState('');
   const [problem, setProblem] = useState('');
   const token = data?.tokens.find((t) => t.id === selected) ?? data?.tokens[0];

@@ -138,6 +138,34 @@ export class ExternalTokens {
     return proposal;
   }
 
+  // Fichiers de tokens réécrits par une IA (sur une copie) : seuls les
+  // changements de valeur de tokens existants sont retenus ; ajouts,
+  // suppressions et autres modifications du fichier sont comptés et ignorés.
+  async changesFrom(files: { path: string; content: string | null }[]) {
+    const { tokens } = await this.read();
+    const changes: { id: string; value: string }[] = [];
+    let ignored = 0;
+    for (const f of files) {
+      const source = this.project.tokens.find((s) => s.file === f.path);
+      if (!source || f.content === null) {
+        ignored++;
+        continue;
+      }
+      const before = tokens.filter((t) => t.file === f.path);
+      const after = parse(source.format, f.content).tokens;
+      for (const t of after) {
+        const old = before.find((b) => b.key === t.key);
+        if (!old) ignored++;
+        else if (old.value !== t.value.trim())
+          changes.push({ id: old.id, value: t.value });
+      }
+      ignored += before.filter(
+        (b) => !after.some((t) => t.key === b.key),
+      ).length;
+    }
+    return { changes, ignored };
+  }
+
   private async journal(): Promise<Entry[]> {
     try {
       return JSON.parse(await readPrivate(this.journalFile));

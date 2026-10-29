@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ProjectBrief from './ProjectBrief.js';
-import Assistant from './Assistant.js';
+import Assistant, { type ExternalAgentResult } from './Assistant.js';
 import Onboarding from './Onboarding.js';
 import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
 import ExternalProjectView from './views/ExternalProjectView.js';
@@ -108,6 +108,7 @@ export default function App() {
   const [code, setCode] = useState<CodeStatus>();
   const [codeHistory, setCodeHistory] = useState<CodeEntry[]>([]);
   const [proposal, setProposal] = useState<Proposal>();
+  const [incoming, setIncoming] = useState<ExternalAgentResult>();
   const [codeProposal, setCodeProposal] = useState<{
     p: CodeProposal;
     item?: string;
@@ -464,13 +465,24 @@ export default function App() {
             <ExternalPreviewView key={external.id} project={external} />
           )}
           {externalView === 'variables' && (
-            <ExternalVariablesView key={external.id} project={external} />
+            <ExternalVariablesView
+              key={external.id}
+              project={external}
+              incoming={incoming?.tokenProposal ?? undefined}
+              onIncoming={() =>
+                setIncoming((r) => r && { ...r, tokenProposal: null })
+              }
+            />
           )}
           {externalView === 'composants' && (
             <ExternalComponentsView
               key={external.id}
               project={external}
               isRepo={!!external.git}
+              incoming={incoming?.codeProposal ?? undefined}
+              onIncoming={() =>
+                setIncoming((r) => r && { ...r, codeProposal: null })
+              }
               onProjectChanged={() =>
                 void request<Projects>('projects').then(setProjects)
               }
@@ -572,8 +584,15 @@ export default function App() {
           )}
         </main>
       )}
-      {!external && (
+      {
         <Assistant
+          key={external?.id ?? 'revela'}
+          project={external}
+          onExternalResult={(r) => {
+            setIncoming(r);
+            // Diff des variables d'abord ; celui du code attend dans Composants.
+            location.hash = r.tokenProposal ? '#/variables' : '#/composants';
+          }}
           agents={agents}
           revision={state.revision}
           onTokenProposal={setProposal}
@@ -581,7 +600,7 @@ export default function App() {
           defaultAgent={settings?.agent}
           onConnect={() => setOnboarding(true)}
         />
-      )}
+      }
       {onboarding && (
         <Onboarding
           onProjects={setProjects}

@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { request } from './api.js';
 import type { Proposal } from '../shared/model.js';
 import type { CodeProposal } from '../server/components.js';
+import type { TokenProposal } from '../server/external-tokens.js';
+
+// Réponse de l'assistant d'un projet externe : jusqu'à deux diffs à valider.
+export type ExternalAgentResult = {
+  tokenProposal: TokenProposal | null;
+  codeProposal: CodeProposal | null;
+};
 
 type Agent = { id: string; available: boolean; detail: string };
 type Message = { role: 'user' | 'assistant'; text: string };
@@ -9,6 +16,7 @@ type Message = { role: 'user' | 'assistant'; text: string };
 // Assistant flottant, repliable. Deux périmètres :
 // - Variables : propositions de tokens (Claude sans outils, ou Codex) ;
 // - Composants : Claude édite une copie de ds/ et produit un diff de code.
+// Projet externe : Claude édite une copie du projet (tokens et composants).
 // Rien n'est jamais appliqué sans le diff et votre validation.
 export default function Assistant({
   agents,
@@ -17,6 +25,8 @@ export default function Assistant({
   onCodeProposal,
   defaultAgent = 'claude',
   onConnect,
+  project,
+  onExternalResult,
 }: {
   agents: Agent[];
   revision: number;
@@ -25,6 +35,8 @@ export default function Assistant({
   // IA choisie dans l'assistant de démarrage ; « none » invite à en brancher une.
   defaultAgent?: 'claude' | 'codex' | 'none';
   onConnect?: () => void;
+  project?: { id: string; name: string };
+  onExternalResult?: (r: ExternalAgentResult) => void;
 }) {
   const [open, setOpen] = useState(() => {
     try {
@@ -57,9 +69,12 @@ export default function Assistant({
     log.current?.scrollTo({ top: log.current.scrollHeight });
   }, [chat, thinking]);
   const selected = agents.find(
-    (a) => a.id === (scope === 'code' ? 'claude' : agent),
+    (a) => a.id === (scope === 'code' || project ? 'claude' : agent),
   );
-  const name = scope === 'code' || agent === 'claude' ? 'Claude' : 'Codex';
+  const name =
+    scope === 'code' || project || agent === 'claude' ? 'Claude' : 'Codex';
+  // Conversation propre à chaque projet.
+  useEffect(() => setChat([]), [project?.id]);
   async function send() {
     if (!message.trim() || thinking) return;
     const text = message;
@@ -71,7 +86,25 @@ export default function Assistant({
     const abort = new AbortController();
     controller.current = abort;
     try {
-      if (scope === 'variables') {
+      if (project) {
+        const r = await request<
+          ExternalAgentResult & { message: string; denied: number }
+        >(`projects/${project.id}/agent`, { message: text }, abort.signal);
+        const found = r.tokenProposal || r.codeProposal;
+        setChat((c) => [
+          ...c,
+          {
+            role: 'assistant',
+            text:
+              r.message +
+              (r.denied
+                ? `\n(${r.denied} action(s) hors de la copie refusée(s).)`
+                : '') +
+              (found ? '' : '\nAucun fichier modifié.'),
+          },
+        ]);
+        if (found) onExternalResult?.(r);
+      } else if (scope === 'variables') {
         const r = await request<{ message: string; proposal: Proposal | null }>(
           'agent',
           { agent, message: text, revision, history: previous },
@@ -133,35 +166,37 @@ export default function Assistant({
           ▾
         </button>
       </header>
-      <div className="assistant-scope">
-        <div
-          className="segmented-ui"
-          role="group"
-          aria-label="Périmètre de l’assistant"
-        >
-          <button
-            aria-pressed={scope === 'variables'}
-            onClick={() => setScope('variables')}
+      {!project && (
+        <div className="assistant-scope">
+          <div
+            className="segmented-ui"
+            role="group"
+            aria-label="Périmètre de l’assistant"
           >
-            Variables
-          </button>
-          <button
-            aria-pressed={scope === 'code'}
-            onClick={() => setScope('code')}
-          >
-            Composants (code)
-          </button>
+            <button
+              aria-pressed={scope === 'variables'}
+              onClick={() => setScope('variables')}
+            >
+              Variables
+            </button>
+            <button
+              aria-pressed={scope === 'code'}
+              onClick={() => setScope('code')}
+            >
+              Composants (code)
+            </button>
+          </div>
+          {scope === 'variables' && (
+            <label className="inline-field">
+              Agent
+              <select value={agent} onChange={(e) => setAgent(e.target.value)}>
+                <option value="claude">Claude · sans outils</option>
+                <option value="codex">Codex</option>
+              </select>
+            </label>
+          )}
         </div>
-        {scope === 'variables' && (
-          <label className="inline-field">
-            Agent
-            <select value={agent} onChange={(e) => setAgent(e.target.value)}>
-              <option value="claude">Claude · sans outils</option>
-              <option value="codex">Codex</option>
-            </select>
-          </label>
-        )}
-      </div>
+      )}
       {(defaultAgent === 'none' ||
         (agents.length > 0 && !selected?.available)) && (
         <p className="notice small">
@@ -176,10 +211,15 @@ export default function Assistant({
         </p>
       )}
       <p className="muted small">
-        {selected?.detail ?? 'Détection du CLI…'}{' '}
-        {scope === 'variables'
-          ? 'Envoi : tokens, PFE.md, DESIGN_RULES.md, brief privé, 10 messages récents.'
-          : 'Claude édite une copie isolée de ds/ (lecture et édition de fichiers seulement). Envoi : code de ds/ et DESIGN_RULES.md.'}
+        {/* Sur un projet, Claude lit et édite une copie : pas « sans outils ». */}
+        {(project
+          ? selected?.detail.replace(/, profil sans outils/, '')
+          : selected?.detail) ?? 'Détection du CLI…'}{' '}
+        {project
+          ? `Claude édite une copie de ${project.name} (lecture et édition de fichiers seulement) : valeurs des tokens et dossiers de composants déclarés. Chaque changement passe par un diff.`
+          : scope === 'variables'
+            ? 'Envoi : tokens, PFE.md, DESIGN_RULES.md, brief privé, 10 messages récents.'
+            : 'Claude édite une copie isolée de ds/ (lecture et édition de fichiers seulement). Envoi : code de ds/ et DESIGN_RULES.md.'}
       </p>
       <div
         className="assistant-log"
@@ -189,9 +229,11 @@ export default function Assistant({
       >
         {!chat.length && (
           <p className="muted">
-            {scope === 'variables'
-              ? 'Ex. : « Propose une alerte plus lisible sur fond clair. »'
-              : 'Ex. : « Ajoute une variante ghost au Button, uniquement avec les tokens. »'}
+            {project
+              ? 'Ex. : « Vérifie les contrastes des couleurs et corrige ceux qui posent problème. »'
+              : scope === 'variables'
+                ? 'Ex. : « Propose une alerte plus lisible sur fond clair. »'
+                : 'Ex. : « Ajoute une variante ghost au Button, uniquement avec les tokens. »'}
           </p>
         )}
         {chat.map((c, i) => (
@@ -202,9 +244,11 @@ export default function Assistant({
         ))}
         {thinking && (
           <p className="muted">
-            {scope === 'code'
-              ? 'Claude modifie une copie du DS…'
-              : 'Réflexion en cours…'}
+            {project
+              ? `Claude modifie une copie de ${project.name} (1 à 5 min)…`
+              : scope === 'code'
+                ? 'Claude modifie une copie du DS…'
+                : 'Réflexion en cours…'}
           </p>
         )}
       </div>

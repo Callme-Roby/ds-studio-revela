@@ -970,3 +970,91 @@ test('page catalogue générée par l’agent (faux CLI) : copie du projet, seul
     ),
   );
 });
+
+test('assistant d’un projet externe (faux CLI) : un diff de variables et un diff de code, rien d’écrit', async (t) => {
+  const { ProjectCodeEditor } =
+    await import('../connectors/agents/project-code.js');
+  const directory = await mkdtemp(path.join(tmpdir(), 'ds-http-assist-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  const site = path.join(directory, 'site');
+  await mkdir(path.join(site, 'src', 'app'), { recursive: true });
+  await mkdir(path.join(site, 'src', 'components'), { recursive: true });
+  const globals = ':root {\n  --text: #111111;\n  --radius: 8px;\n}\n';
+  await writeFile(path.join(site, 'src', 'app', 'globals.css'), globals);
+  await writeFile(
+    path.join(site, 'src', 'components', 'Card.tsx'),
+    'export default function Card() { return <div />; }\n',
+  );
+  await writeFile(path.join(site, 'next.config.ts'), 'export default {};\n');
+  const store = new Store(path.join(directory, 'data'), seed);
+  await store.init();
+  const fake = path.join(root, 'tests/fixtures/fake-claude.mjs');
+  const app = await createStudioServer({
+    root,
+    store,
+    claude: new ClaudeAdapter(process.execPath, [fake, 'ok']),
+    projectEditor: new ProjectCodeEditor(process.execPath, [fake, 'assist']),
+  });
+  await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', r));
+  t.after(() => app.close());
+  const origin = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
+  const { csrf } = await (await fetch(origin + '/api/bootstrap')).json();
+  const post = (route: string, body: unknown) =>
+    fetch(origin + '/api/' + route, {
+      method: 'POST',
+      headers: {
+        Origin: origin,
+        'Content-Type': 'application/json',
+        'X-DS-Studio': csrf,
+      },
+      body: JSON.stringify(body),
+    });
+  await post('projects/add', {
+    name: 'Site',
+    root: site,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  // Ni tokens ni composants déclarés : rien à confier à l'agent.
+  assert.equal(
+    (await post('projects/site/agent', { message: 'Adoucis le texte' })).status,
+    409,
+  );
+  await post('projects/site/sources', {
+    tokens: [{ file: 'src/app/globals.css', format: 'css' }],
+  });
+  await post('projects/site/component-dirs', {
+    components: [{ dir: 'src/components', extensions: ['tsx'] }],
+  });
+  const r = await (
+    await post('projects/site/agent', { message: 'Adoucis le texte' })
+  ).json();
+  assert.match(r.message, /Périmètre : ok\./);
+  assert.match(r.message, /1 modification\(s\) de fichier de tokens/);
+  assert.deepEqual(
+    r.tokenProposal.patches.map((p: { key: string; after: string }) => [
+      p.key,
+      p.after,
+    ]),
+    [['text', '#222222']],
+  );
+  assert.deepEqual(
+    r.codeProposal.files.map((f: { path: string }) => f.path),
+    ['src/components/Card.tsx'],
+  );
+  // Rien n'est écrit avant validation.
+  assert.equal(
+    await readFile(path.join(site, 'src/app/globals.css'), 'utf8'),
+    globals,
+  );
+  assert.equal(
+    await readFile(path.join(site, 'next.config.ts'), 'utf8'),
+    'export default {};\n',
+  );
+  await post('projects/site/tokens/commit', { id: r.tokenProposal.id });
+  assert.match(
+    await readFile(path.join(site, 'src/app/globals.css'), 'utf8'),
+    /--text: #222222;/,
+  );
+});

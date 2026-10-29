@@ -107,7 +107,7 @@ export class ComponentStore {
     this.journalFile = path.join(dataDir, 'components-history.json');
   }
 
-  private allowed(rel: string) {
+  allowed(rel: string) {
     if (!this.scope) return componentPath.test(rel);
     const parts = rel.split('/');
     return (

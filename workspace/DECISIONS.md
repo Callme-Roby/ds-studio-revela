@@ -582,3 +582,12 @@ routeurs autres que Next.js non pris en charge pour la génération.
 
 **Essai réel (2026-10-29).** Page catalogue générée par Claude sur CDPP,
 validée par l’étudiant sur diff, affichée dans l’aperçu des composants.
+
+## Assistant IA sur les projets externes (2026-10-29)
+
+L’assistant suit le projet actif. Sur un projet externe, Claude édite une
+copie du projet (lecture et édition de fichiers, ni shell ni réseau). Les
+fichiers de tokens modifiés deviennent une proposition de valeurs (ajouts et
+suppressions de tokens ignorés, valeurs contrôlées) ; les dossiers de
+composants, une proposition de code. Chaque proposition s’ouvre dans son
+diff ; rien n’est écrit sans validation. Le reste de la copie est jeté.

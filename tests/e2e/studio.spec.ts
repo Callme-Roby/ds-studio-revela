@@ -576,9 +576,13 @@ test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', 
     await expect(
       page.getByRole('link', { name: 'Ouvrir dans Figma' }),
     ).toHaveAttribute('href', 'https://www.figma.com/design/abc/Site');
+    // L'assistant suit le projet actif : il édite une copie de ce projet.
+    await page.getByRole('button', { name: /Assistant IA/ }).click();
     await expect(
-      page.getByRole('button', { name: /Assistant IA/ }),
-    ).toHaveCount(0);
+      page.getByText(/Claude édite une copie de Site vitrine/),
+    ).toBeVisible();
+    await expect(page.getByText(/profil sans outils/)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Replier l’assistant' }).click();
     await page
       .getByRole('button', { name: /Site vitrine/ })
       .first()

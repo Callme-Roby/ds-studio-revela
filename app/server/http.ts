@@ -575,7 +575,7 @@ export async function createStudioServer(options: {
           return send(200, { state, code: await code.write() });
         }
         const projectRoute = url.pathname.match(
-          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push|catalog\/generate)$/,
+          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push|catalog\/generate|agent)$/,
         );
         if (projectRoute) {
           const [, id, action] = projectRoute;
@@ -661,6 +661,91 @@ export async function createStudioServer(options: {
                 message: reply.message,
                 denied: reply.denied,
                 proposal,
+              });
+            } finally {
+              busy = false;
+              active.delete(controller);
+              res.off('close', cancel);
+            }
+          }
+          if (action === 'agent') {
+            // Assistant du projet : Claude édite une copie ; les fichiers de
+            // tokens deviennent une proposition de valeurs, les composants une
+            // proposition de code. Chacune passe par son diff et sa validation.
+            const b = z
+              .object({ message: z.string().trim().min(1).max(8000) })
+              .strict()
+              .parse(body);
+            const p = await projects.project(id);
+            const tokenFiles = new Set(p.tokens.map((t) => t.file));
+            const cs = p.components.length
+              ? (await externalComponents(id)).store
+              : null;
+            if (!tokenFiles.size && !cs)
+              throw new StudioError(
+                'Déclarez d’abord des fichiers de tokens ou des dossiers de composants.',
+                409,
+              );
+            if (busy)
+              throw new StudioError('Une demande IA est déjà en cours.', 429);
+            const status = await adapters.claude.status();
+            if (!status.available) throw new StudioError(status.detail, 503);
+            busy = true;
+            const controller = new AbortController();
+            active.add(controller);
+            const cancel = () => controller.abort();
+            res.once('close', cancel);
+            try {
+              const scope = [
+                ...[...tokenFiles].map((f) => `${f} (tokens)`),
+                ...p.components.map((c) => `${c.dir}/ (composants)`),
+              ].join(', ');
+              const reply = await projectEditor.edit(
+                p,
+                `Demande de l'utilisateur :\n${b.message}\n\nTu peux modifier uniquement : ${scope}. Dans les fichiers de tokens, ne change que des valeurs existantes. Toute autre modification sera ignorée.`,
+                (rel) => tokenFiles.has(rel) || !!cs?.allowed(rel),
+                controller.signal,
+              );
+              const tokenChanges = reply.changes.filter((c) =>
+                tokenFiles.has(c.path),
+              );
+              const codeChanges = reply.changes.filter(
+                (c) => !tokenFiles.has(c.path),
+              );
+              const notes: string[] = [];
+              let tokenProposal = null;
+              if (tokenChanges.length) {
+                const service = new ExternalTokens(p, projects.stateDir(id));
+                const { changes, ignored } =
+                  await service.changesFrom(tokenChanges);
+                if (ignored)
+                  notes.push(
+                    `${ignored} modification(s) de fichier de tokens hors valeurs ignorée(s).`,
+                  );
+                if (changes.length)
+                  try {
+                    tokenProposal = await service.propose(
+                      changes.slice(0, 50),
+                      'claude',
+                      b.message.slice(0, 300),
+                    );
+                  } catch (e) {
+                    notes.push(`Variables refusées : ${(e as Error).message}`);
+                  }
+              }
+              const codeProposal =
+                codeChanges.length && cs
+                  ? await cs.propose(
+                      codeChanges,
+                      'claude',
+                      b.message.slice(0, 200),
+                    )
+                  : null;
+              return send(200, {
+                message: [reply.message, ...notes].join('\n'),
+                denied: reply.denied,
+                tokenProposal,
+                codeProposal,
               });
             } finally {
               busy = false;
