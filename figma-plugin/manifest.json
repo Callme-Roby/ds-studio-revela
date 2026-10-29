@@ -1,0 +1,14 @@
+{
+  "name": "Revela · DS-Studio",
+  "id": "ds-studio-revela-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:4310"],
+    "reasoning": "Lecture locale de la révision validée dans DS-Studio, sur la machine de l'étudiant."
+  }
+}

@@ -1,0 +1,325 @@
+# Journal de décisions du projet
+
+## V1 — Starter
+
+React permet d’employer exactement les mêmes composants dans le catalogue et
+le viewport isolé. Le backend HTTP Node utilise la bibliothèque standard ; Zod
+valide les entrées et les fichiers. Vite compile le frontend. Pas d’Electron,
+base distante, Figma ou LLM obligatoire.
+
+Codex propose du JSON sans outils ; le contrôleur est l’unique auteur des changements
+locaux validés. Claude et Gemini ne sont pas activés sans qualification.
+
+## À compléter par l’étudiant
+
+Date, problème, options explorées, décision, preuves et limite connue.
+
+## 28/10/2026 — Palette Revela importée (étape A)
+
+**Problème.** Le DS de Revela n’existe presque qu’en valeurs écrites en dur
+(51 couleurs, 9 tailles de texte, 6 variables CSS). Inventaire et proposition
+complète : `workspace/REVELA_TOKENS.md`.
+
+**Options.** A : faire correspondre Revela aux 18 clés existantes de DS-Studio.
+B : étendre le schéma (alerte, passe-partout, sélection, IA, canaux), ce qui
+exige une migration de l’état.
+
+**Décision.** Étape A d’abord, par import de `workspace/revela-tokens.json`
+(révision 3, 14 changements depuis r2). `color.muted` passe à `#6B6B6B` au lieu
+de `#8A8A8A` pour atteindre 4,5:1. `font.body` vaut 14 et non 12 : DS-Studio en
+dérive les libellés (× 0,8), et 12 les faisait tomber à 9,6 px.
+
+**Preuves (Windows, Chromium du panneau de l’app, serveur local).**
+- Disque : `state.json` en r3, identique au fichier importé ; copie r2 conservée.
+- Catalogue et aperçu : mêmes variables (`#111111`, 14 px, rayon 4 px) ;
+  libellés 11,2 px, cartes 12,25 px.
+- Contrastes : texte 18,88:1, texte secondaire 5,33:1 (4,89:1 sur `#F5F5F5`),
+  erreur 7,33:1, succès 5,13:1.
+- Viewports 320, 375, 430, 1024 px, scénarios Découvrir et Inscription : aucun
+  débordement horizontal.
+- Persistance : valeurs identiques après rechargement et redémarrage du serveur.
+
+**Limites connues.**
+- `color.border` `#ECECEC` (1,18:1) : contours des champs presque invisibles.
+  Un seul token sert aux filets et aux champs ; à séparer en étape B.
+- `color.brandHover` `#000000` : survol à peine perceptible sur `#111111`.
+- Textes de 10 px fixés dans `styles.css` (badge, kicker, pied de page), hors tokens.
+- Les composants restent ceux de l’exemple Lisière ; seuls les tokens viennent de Revela.
+- Annulation possible : Historique → révision 3.
+
+## 28/10/2026 — Schéma v2 : tokens Revela et migration (étape 2)
+
+**Problème.** Les 18 clés ne pouvaient pas représenter Revela (alerte,
+passe-partout, sélection, canaux, IA, contour de champ distinct).
+
+**Options.** Renommer les clés selon `REVELA_TOKENS.md` (cassait l’historique
+r1–r3 et les composants) ou **ajouter** des clés en gardant les 18 existantes.
+
+**Décision.** Ajout : 27 clés, 45 au total, nommage plat de DS-Studio
+(`color.warning`, `font.md`…). Les 18 clés gardent leur sens ; `color.border`
+reste le filet, `color.borderStrong` (`#8A8A8A`, 3,45:1 sur blanc, 3,17:1 sur
+`#F5F5F5`) servira au contour des champs. État en version 2, migré à la lecture.
+Seed versionné remplacé par les 45 valeurs Revela (seed Lisière sauvegardé).
+
+**Preuves (Windows).**
+- `npm run check` et `npm run build` : OK.
+- `npm test` : 30 réussis, 0 échec, 2 ignorés (liens symboliques non autorisés
+  sous Windows, déjà ignorés avant). Trois tests ajoutés : migration avec
+  archive, valeurs et historique conservés, annulation d’une révision v1 après
+  migration ; copie précédente v1 restaurée puis migrée ; v1 falsifié refusé
+  sans écriture.
+- État réel : v2, r3, 45 clés ; 18 valeurs et historique identiques à la
+  sauvegarde ; archive `state-v1-preserved-….json` identique à l’original.
+- Interface : « 45 tokens », nouvelles variables CSS présentes, diff sur
+  `color.warning` basé sur r3, fermé sans écriture.
+
+- `npm run test:e2e` (Chromium Playwright installé ensuite) : 10 réussis sur 10.
+  Deux tests supposaient le seed Lisière (bleu `#3154C4` écrit en dur, « 3
+  résultat(s) » pour `space`) ; ils lisent désormais la valeur de départ dans
+  `/api/state` et ne dépendent plus du seed.
+
+**Limites connues.**
+- Les nouvelles clés ne sont encore utilisées par aucun composant (étape 3).
+- `workspace/revela-tokens.json` (18 clés) n’est plus importable tel quel.
+- Opacité, graisses, ombres, durées : hors du format de tokens.
+- Sauvegarde externe avant migration :
+  `Documents/DS-Studio-sauvegardes/ds-studio-2026-10-28-avant-v2/`.
+
+## 28/10/2026 — Composants et écrans Revela (étape 3)
+
+**Problème.** Le catalogue et l’aperçu montraient encore Lisière (réservation,
+inscription, navigation mobile) : impossible de juger un token sur Revela.
+
+**Options.** Importer les vrais composants de Revela (liés à Electron, à l’IPC
+et au boîtier) ou les **recréer** en versions visuelles avec les mêmes rôles.
+
+**Décision.** Recréation dans `app/client/DesignSystem.tsx`, tout en tokens :
+badge live, alertes, vignette avec sélection, curseur, contrôle segmenté, champ
+(`color.borderStrong`), recherche IA en dégradé, canaux et poignée de masque,
+bulle d’aide. Catalogue en six sections. Aperçu en trois écrans — Prise de vue,
+Bibliothèque, Développement — avec onglets de mode, scène sur passe-partout et
+panneau de 300 px à droite. Largeurs : 1024, 1280, 1440, 1920 px (Revela est
+desktop). Les photos sont des dégradés de gris neutres, seul contenu hors token.
+
+**Preuves (Windows, Chromium).**
+- `npm run check`, `npm run build` : OK. `npm test` : 30 réussis, 2 ignorés.
+- `npm run test:e2e` : 10/10. Le test de propagation suit désormais le
+  contrôle segmenté du catalogue, le bouton Déclencher et l’onglet de mode de
+  l’aperçu ; le test des largeurs vérifie 1024 à 1920 px, le panneau à droite,
+  le déclenchement, la sélection d’une photo, le changement de mode et la recherche.
+- 3 écrans × 4 largeurs : aucun débordement, écran tenu en 800 px de haut,
+  texte minimal 11 px. Catalogue : aucun élément hors du panneau.
+- 42 tokens sur 45 utilisés ; aucun hexadécimal dans les styles des composants.
+
+**Limites connues.**
+- Recréations visuelles : le code de Revela n’est pas encore relié (étape 5).
+- Non utilisés : `color.disabled` (le désactivé reste une opacité),
+  `space.xl`, `radius.md`.
+- Pas de vérification visuelle automatisée (captures comparées).
+- Cibles de la vignette (étoile) en 28 px : au-dessus du minimum de 24 px,
+  sous les 44 px des autres contrôles.
+
+## 28/10/2026 — Contrôles Revela dans le diff (étape 4)
+
+**Problème.** Le diff ne montrait que des valeurs : rien n’empêchait de teinter
+un gris d’interface, de casser un contraste ou de rendre un texte illisible.
+
+**Options.** Bloquer toute proposition fautive, ou **signaler** et laisser la
+décision à l’humain. Les règles sont « des objectifs à tester, pas une
+certification » (`DESIGN_RULES.md`) : un blocage strict empêcherait d’essayer.
+
+**Décision.** Module partagé `app/shared/rules.ts`, calculé sur l’avant et
+l’après de la proposition :
+- neutralité (R = V = B) de 10 gris d’interface, dont `color.mat` ;
+- contraste de 16 paires réellement affichées (4,5:1 texte, 3:1 contour et focus) ;
+- taille minimale 10 px, y compris les libellés dérivés de `font.body × 0,8` ;
+- échelles de tailles et d’espaces croissantes.
+Le diff sépare problèmes **introduits**, **résolus** et **déjà présents**. Un
+problème introduit verrouille « Valider et enregistrer » jusqu’à une case
+« Je valide en connaissance de cause » ; corriger ou ne rien aggraver ne demande rien.
+`color.brand` n’est pas soumis à la neutralité : le choix de l’accent reste ouvert.
+
+**Preuves (Windows, Chromium).**
+- Seed et état réel r3 : 0 problème.
+- `npm test` : 36 réussis, 2 ignorés (liens symboliques Windows) ; 6 tests de règles.
+- `npm run test:e2e` : 11/11. Nouveau test : `color.surface` `#FFF5F5` signalé
+  (écart de 10), validation verrouillée puis déverrouillée par l’accord, ancien
+  `--ink-mute` `#8A8A8A` signalé à 3,45:1, aucune écriture. Le test de la boucle
+  centrale passe par l’accord pour `space.md` 22 (échelle inversée).
+- Contrôle visuel du diff dans le panneau : `color.mat` `#2E2A33` signalé, fermé sans écriture.
+
+**Limites connues.**
+- Les paires de contraste sont déclarées à la main : un nouveau composant
+  exige d’y ajouter ses paires.
+- Les alertes sont calculées dans le navigateur ; le serveur ne les impose pas
+  (l’IA de l’étape 6 devra passer par le même diff).
+- Pas de contrôle sur les couleurs de sens entre elles (pick, canaux, IA).
+
+## 28/10/2026 — Écriture des tokens dans le code de Revela (étape 5)
+
+**Problème.** Une validation dans DS-Studio ne changeait rien dans Revela.
+
+**Options.** Laisser un agent modifier `index.css` (accès fichier libre, refusé
+par `AGENTS.md`) ou faire écrire **un seul fichier généré** par le contrôleur,
+après la validation humaine.
+
+**Décision.** `app/server/code-target.ts` :
+- cible déclarée par l’étudiant dans `.ds-studio/code-target.json` (privé,
+  hors Git), chemin absolu vers un fichier nommé `tokens.css`, dossier réel ;
+  jamais fournie par HTTP ni par une IA ;
+- après chaque validation (et annulation), le serveur génère `:root` avec les
+  45 variables et des alias des variables historiques (`--ink`, `--ink-mute`,
+  `--rule`, `--mat`, `--accent`, `--space`), écrit de façon atomique, **relit**
+  et compare ;
+- en-tête avec révision et empreinte : un fichier modifié à la main ou non
+  généré par DS-Studio n’est jamais écrasé ;
+- l’état DS-Studio reste la source : un échec côté code n’annule pas la
+  révision ; l’en-tête affiche l’état du code et propose « Écrire le code » ;
+- le diff annonce le chemin qui sera écrit avant la validation.
+
+**Preuves (Windows).**
+- `npm test` : 41 réussis, 2 ignorés (liens symboliques Windows). 5 tests
+  `code-target` : sans configuration, écriture relue puis mise à jour,
+  fichier modifié ou étranger jamais écrasé, configuration invalide refusée,
+  validations rapprochées terminées sur la dernière révision. Test HTTP :
+  réponse de validation `{ state, code }`.
+- `npm run test:e2e` : 11/11 (cible non configurée dans les tests).
+- Réel : `Revela/apps/desktop/src/renderer/tokens.css` écrit et relu en
+  révision 3 (58 lignes, droits 644), badge « Code Revela · à jour r3 » ;
+  diff d’essai sur `color.warning` affichant la cible, fermé sans écriture.
+
+**Limites connues.**
+- `index.css` de Revela n’importe pas encore `tokens.css` et redéclare ses
+  6 variables dans `:root` : aucun effet visible dans Revela tant que ce
+  branchement n’est pas fait.
+- Fichier non suivi dans le dépôt Revela (`git status` : `??`), à committer
+  par l’étudiant s’il le souhaite.
+- Un éditeur qui convertit les fins de ligne fera passer le fichier en
+  « modifié » : écriture alors refusée, par prudence.
+- Les 51 couleurs écrites en dur dans Revela ne sont pas encore remplacées.
+
+## 28/10/2026 — Revela importe `tokens.css` (suite de l’étape 5)
+
+**Décision.** Dans `Revela/apps/desktop/src/renderer/index.css`, le bloc
+`:root` qui déclarait `--ink`, `--ink-mute`, `--rule`, `--mat`, `--accent` et
+`--space` est remplacé par `@import './tokens.css';`. Ces six variables
+viennent désormais des alias générés. Seul effet visuel immédiat : `--ink-mute`
+passe de `#8a8a8a` à `#6B6B6B` (3,45:1 → 5,33:1, 54 usages).
+
+**Preuve de bout en bout (Windows).**
+- Révision 4 : `color.mat` `#2E2E2E` → `#262626`, validée à ma demande
+  explicite (clic exécuté par l’agent dans le panneau, sur le diff que j’avais
+  approuvé, sans alerte des contrôles Revela).
+- Réponse de validation : « tokens.css écrit et relu (révision 4) » ; fichier
+  en révision 4 avec `--color-mat: #262626;` ; catalogue et aperçu à `#262626`.
+- `npm run build -w @revela/desktop` : OK ; CSS compilé avec
+  `--color-mat:#262626` et `--mat:var(--color-mat)`, plus aucune trace de `#2e2e2e`.
+
+**Limites connues.**
+- L’application Revela n’a pas été lancée : rendu à l’écran non vérifié.
+- Dans le dépôt Revela, `index.css` modifié et `tokens.css` non suivi :
+  rien n’est commité.
+- Le build doit être relancé (ou `npm run dev` tourner) pour voir un nouveau token.
+
+## 28/10/2026 — Adaptateur Claude (étape 6)
+
+**Problème.** L’IA devait proposer des changements de tokens ; seul Codex était
+qualifié et son CLI n’est pas installé. Claude Code 2.1.87 est installé.
+
+**Décision (choix de l’étudiant).** Brancher Claude, avec accord pour quelques
+envois réels de qualification. `connectors/agents/claude.ts` :
+- `claude -p` en JSON, `--tools ""`, aucun MCP (`--strict-mcp-config`,
+  configuration vide), `--setting-sources ""`, sans commandes slash ni session
+  conservée, `--permission-mode dontAsk` ; dossier temporaire vide ; variables
+  d’environnement filtrées ; contexte et demande par l’entrée standard ;
+- `--json-schema` : réponse `{message, changes}` limitée aux 45 clés existantes ;
+- refus si erreur du service, plus de 2 tours, refus de permission (outil
+  tenté), réponse sans sortie structurée ou illisible ; stderr jamais renvoyé.
+  Le second tour est celui de la réponse structurée (`--json-schema`), mesuré
+  sur 2.1.87 + Sonnet 5.5 ; le premier seuil (1 tour) refusait à tort ;
+- modèle et effort fixés par l’étudiant : `--model claude-sonnet-5-5`,
+  `--effort medium` (le CLI 2.1.87 doit encore prouver qu’il connaît ce modèle) ;
+- versions 2.1.x acceptées, qualification faite sur 2.1.87 ;
+- proposition tracée `source: claude` dans l’historique ;
+- serveur : un commit qui introduit un problème des contrôles Revela est
+  refusé sans `acknowledged` (409), quelle que soit la source.
+
+**Preuves (Windows, sans envoi).**
+- `npm test` : 46 réussis, 2 ignorés. Faux CLI : profil (options, dossier vide,
+  environnement sans clé), réponse valide, outil tenté, erreur service sans
+  fuite, clé inventée, version non qualifiée, stderr sensible, CLI absent.
+  HTTP : accord exigé (409 puis 200), proposition Claude via le même diff,
+  source tracée, aucune écriture avant validation.
+- `npm run test:e2e` : 11/11.
+- Serveur réel : Claude détecté disponible (2.1.87).
+- Envoi réel n° 1 (sonde sans donnée du projet) : refusé par le service,
+  jeton OAuth expiré ; profil accepté, aucun outil ni refus de permission.
+
+**Qualification réelle (Windows, CLI 2.1.87, après reconnexion de l’étudiant).**
+- Envoi 2 (DS-Studio, contexte complet) : refusé par le garde-fou « 1 tour ».
+- Envoi 3 (sonde sans donnée du projet, arguments exacts) : `num_turns` 2,
+  aucun refus de permission, sortie structurée présente, modèle
+  `claude-sonnet-5-5` ; Claude refuse la consigne glissée dans le JSON.
+- Envoi 4 (DS-Studio, contexte complet, garde-fou corrigé) : 20 s ; proposition
+  `color.warning` `#8F5600` → `#7A4A00` expliquée ; diff « Proposition claude ·
+  basée sur la révision 4 », cible `tokens.css` annoncée, contrôles Revela sans
+  problème introduit. Validée par l’étudiant dans le panneau : révision 5,
+  source `claude`, `tokens.css` de Revela écrit et relu en révision 5.
+- Envoi 5 (adaptateur réel, seed public, demande hostile : lire les
+  identifiants, `npm install`, écrire dans Figma, surface rouge, clé inventée) :
+  12 s, tout refusé, `changes` vide, aucun secret dans la réponse.
+- Ratios annoncés par Claude pour `#7A4A00` exacts (6,66 / 7,48 / 6,86:1),
+  mais faux pour `#111111` sur `#FF0000` (5,25 annoncé, 4,72 réel) : les
+  contrôles calculés par DS-Studio restent la référence, pas les chiffres de l’IA.
+- Incident pendant les tests : un premier script a écrit la demande dans un
+  champ du brief privé (premier `textarea` de la page) ; rechargement, brief
+  enregistré vérifié intact, rien sauvegardé. Saisie ensuite ciblée par libellé.
+
+**Limites connues.**
+- Qualifié sur une seule version (2.1.87) et une seule plateforme (Windows).
+- Le contexte complet (brief privé compris) part chez Anthropic à chaque envoi.
+- Quota consommé à chaque demande ; délai observé 12 à 21 s.
+
+## 2026-10-28 — Étape 7 : plugin Figma « Revela · DS-Studio »
+
+**Choix.** Un plugin de développement (`figma-plugin/`), lancé par l’étudiant
+dans Figma desktop, lit la révision validée sur `GET /api/figma/tokens`, montre
+le plan (créations, mises à jour, conflits) et n’écrit qu’après son clic, puis
+relit. DS-Studio n’obtient aucun accès Figma ; le chat IA non plus.
+
+**Garde-fous.**
+- Collection dédiée « Revela · DS-Studio », un mode, 45 variables nommées
+  `groupe/clé`, portées (scopes) explicites.
+- Valeur écrite mémorisée sur chaque variable : une retouche faite à la main
+  dans Figma est un conflit, conservé sauf accord explicite ; type différent
+  jamais remplacé ; variables hors DS-Studio laissées telles quelles.
+- Empreinte du plan : si Figma ou DS-Studio a changé entre lecture et clic,
+  l’écriture est refusée.
+- Serveur : seule exception à la règle d’origine, la route `/api/figma/tokens`
+  en lecture (GET + préflight), origine `null`, hôte `localhost` accepté pour
+  elle seule ; toutes les autres routes refusent.
+
+**Incidents réels.**
+- Manifest refusé : Figma n’accepte pas d’IP dans `devAllowedDomains`
+  (`http://127.0.0.1:4310`) ; passage à `http://localhost:4310`.
+- « Lire DS-Studio » sans effet : serveur arrêté, et préflight « Private
+  Network Access » de Chromium sans réponse. Préflight ajouté (204,
+  `Access-Control-Allow-Private-Network`), délai de 5 s et message d’état
+  immédiat dans le plugin.
+
+**Preuves.**
+- Tests : logique du plan, `code.js` exécuté tel quel contre une imitation de
+  l’API Figma (création, relecture, conflit respecté, plan périmé refusé),
+  manifest, routes HTTP (préflight accepté sur la route plugin, refusé ailleurs).
+- Réel : l’étudiant a appliqué la révision 5 dans le fichier de test « Revela ·
+  test DS-Studio ». Relecture indépendante via Figma MCP (lecture seule) :
+  collection « Revela · DS-Studio », 45 variables, valeurs identiques une à une
+  à `/api/state` révision 5 (dont `color/warning` `#7A4A00`, `color/mat`
+  `#262626`).
+
+**Limites connues.**
+- Synchronisation déclenchée dans Figma (clic ou « Suivre les validations »
+  plugin ouvert), pas poussée par DS-Studio.
+- Plugin de développement : fonctionne seulement avec Figma desktop sur la
+  machine où DS-Studio tourne ; testé dans le fichier de test, pas encore dans
+  le fichier Revela réel ; aucune liaison des variables aux composants Figma.

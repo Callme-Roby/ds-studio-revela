@@ -1,0 +1,219 @@
+<!doctype html>
+<meta charset="utf-8" />
+<style>
+  body {
+    font: 12px/1.45 Inter, system-ui, sans-serif;
+    margin: 0;
+    padding: 12px;
+    color: var(--figma-color-text, #111);
+    background: var(--figma-color-bg, #fff);
+  }
+  h1 {
+    font-size: 13px;
+    margin: 0 0 4px;
+  }
+  p {
+    margin: 6px 0;
+    color: var(--figma-color-text-secondary, #555);
+  }
+  .row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 8px 0;
+  }
+  button {
+    font: inherit;
+    padding: 6px 10px;
+    border-radius: 5px;
+    border: 1px solid var(--figma-color-border, #ccc);
+    background: var(--figma-color-bg, #fff);
+    color: inherit;
+    cursor: pointer;
+  }
+  button.primary {
+    background: var(--figma-color-bg-brand, #0d99ff);
+    color: var(--figma-color-text-onbrand, #fff);
+    border-color: transparent;
+  }
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 3px 4px;
+    border-bottom: 1px solid var(--figma-color-border, #eee);
+    vertical-align: top;
+  }
+  .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: -1px;
+    box-shadow: 0 0 0 1px #0003;
+  }
+  .warn {
+    color: var(--figma-color-text-warning, #8f5600);
+  }
+  .danger {
+    color: var(--figma-color-text-danger, #b00020);
+  }
+  .ok {
+    color: var(--figma-color-text-success, #2e7d32);
+  }
+  #status {
+    min-height: 18px;
+  }
+</style>
+<h1>Revela · DS-Studio</h1>
+<p>
+  Lit la révision validée dans DS-Studio, compare avec la collection « Revela ·
+  DS-Studio », écrit seulement après votre clic, puis relit.
+</p>
+<div class="row">
+  <button id="read">Lire DS-Studio</button>
+  <label><input type="checkbox" id="follow" /> Suivre les validations</label>
+  <label>
+    ou export JSON
+    <input type="file" id="file" accept=".json,application/json" />
+  </label>
+</div>
+<p id="status" role="status"></p>
+<div id="diff"></div>
+<label id="ack" hidden class="row warn">
+  <input type="checkbox" id="overwrite" />
+  <span id="ackText"></span>
+</label>
+<div class="row">
+  <button class="primary" id="apply" disabled>Appliquer à Figma</button>
+  <button id="close">Fermer</button>
+</div>
+<script>
+  // Figma n'accepte qu'un nom de domaine dans devAllowedDomains, pas une IP.
+  const DS = 'http://localhost:4310/api/figma/tokens';
+  const $ = (id) => document.getElementById(id);
+  let source = null;
+  let current = null;
+  let timer = null;
+  const status = (text, cls = '') => {
+    $('status').textContent = text;
+    $('status').className = cls;
+  };
+  const swatch = (v) =>
+    /^#[0-9A-F]{6}$/.test(v)
+      ? `<span class="swatch" style="background:${v}"></span>${v}`
+      : String(v ?? '—');
+  async function read(quiet) {
+    if (!quiet) status('Lecture de DS-Studio…');
+    try {
+      const r = await fetch(DS, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || r.status);
+      const next = await r.json();
+      if (quiet && source && next.revision === source.revision) return;
+      source = next;
+      status(`DS-Studio : révision ${source.revision}.`);
+      parent.postMessage({ pluginMessage: { type: 'plan', source } }, '*');
+    } catch (e) {
+      status(
+        `DS-Studio injoignable sur localhost:4310 (${e.name === 'TimeoutError' ? 'délai dépassé' : e.message}). Lancez npm start, ou importez un export JSON.`,
+        'danger',
+      );
+    }
+  }
+  $('read').onclick = () => read(false);
+  $('follow').onchange = (e) => {
+    clearInterval(timer);
+    if (e.target.checked) {
+      read(false);
+      timer = setInterval(() => read(true), 3000);
+    }
+  };
+  $('file').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const tokens = JSON.parse(await f.text());
+      source = { revision: `fichier ${f.name}`, tokens };
+      status(`Export chargé : ${f.name}.`);
+      parent.postMessage({ pluginMessage: { type: 'plan', source } }, '*');
+    } catch {
+      status('Fichier JSON illisible.', 'danger');
+    }
+  };
+  $('overwrite').onchange = () => render(current);
+  $('apply').onclick = () => {
+    $('apply').disabled = true;
+    status('Écriture puis relecture…');
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'apply',
+          source,
+          key: current.key,
+          overwrite: $('overwrite').checked,
+        },
+      },
+      '*',
+    );
+  };
+  $('close').onclick = () =>
+    parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+  function render(msg) {
+    current = msg;
+    const p = msg.plan;
+    const rows = [
+      ...p.create.map((r) => ({ ...r, what: 'création' })),
+      ...p.update.map((r) => ({ ...r, what: 'mise à jour' })),
+      ...p.conflicts.map((r) => ({ ...r, what: r.reason, cls: 'warn' })),
+    ];
+    $('diff').innerHTML =
+      `<p>${p.unchanged} variable(s) déjà à jour · ${p.create.length} à créer · ${p.update.length} à modifier · ${p.conflicts.length} en conflit${p.extra.length ? ` · ${p.extra.length} hors DS-Studio (laissées telles quelles)` : ''}.</p>` +
+      (rows.length
+        ? `<table><tr><th>Variable</th><th>Figma</th><th>DS-Studio</th><th></th></tr>${rows
+            .map(
+              (r) =>
+                `<tr class="${r.cls || ''}"><td>${r.name}</td><td>${swatch(r.before)}</td><td>${swatch(r.after)}</td><td>${r.what}</td></tr>`,
+            )
+            .join('')}</table>`
+        : '<p class="ok">Figma est déjà à jour.</p>');
+    const replaceable = p.conflicts.filter((c) => !c.reason.startsWith('type'));
+    $('ack').hidden = !replaceable.length;
+    $('ackText').textContent = `Remplacer ${replaceable.length} variable(s) modifiée(s) dans Figma par la valeur DS-Studio.`;
+    const work = p.create.length + p.update.length + ($('overwrite').checked ? replaceable.length : 0);
+    $('apply').disabled = !work || !msg.key;
+    $('apply').textContent = work ? `Appliquer ${work} changement(s) à Figma` : 'Appliquer à Figma';
+  }
+  onmessage = (e) => {
+    const msg = e.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === 'plan') {
+      $('overwrite').checked = false;
+      render(msg);
+    } else if (msg.type === 'applied') {
+      status(
+        msg.synced
+          ? `${msg.written} variable(s) écrite(s), relues : Figma est à jour (révision ${source.revision}).`
+          : `${msg.written} variable(s) écrite(s), mais la relecture montre des écarts.`,
+        msg.synced ? 'ok' : 'danger',
+      );
+      render({ plan: msg.readback, key: null });
+      $('apply').disabled = true;
+    } else if (msg.type === 'error') {
+      status(msg.message, 'danger');
+      if (current) render(current);
+    }
+  };
+</script>

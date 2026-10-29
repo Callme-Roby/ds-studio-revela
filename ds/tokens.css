@@ -1,0 +1,58 @@
+/* DS-Studio · fichier généré : ne pas modifier à la main.
+ * Révision 0 · empreinte 6a5cd4fe4fb5d8fe
+ * Source : DS-Studio, après validation humaine du diff. */
+:root {
+  --color-brand: #111111;
+  --color-brandHover: #000000;
+  --color-onBrand: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-canvas: #F5F5F5;
+  --color-text: #111111;
+  --color-muted: #6B6B6B;
+  --color-border: #ECECEC;
+  --color-danger: #B00020;
+  --color-success: #2E7D32;
+  --color-focus: #111111;
+  --font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-body: 14px;
+  --font-heading: 17px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --radius-control: 4px;
+  --color-surfaceHover: #EBEBEB;
+  --color-mat: #2E2E2E;
+  --color-disabled: #8A8A8A;
+  --color-borderStrong: #8A8A8A;
+  --color-dangerSurface: #FDF3F3;
+  --color-warning: #8F5600;
+  --color-warningSurface: #FDF0DD;
+  --color-warningBorder: #E0A760;
+  --color-pick: #F5A623;
+  --color-channelR: #D02A2A;
+  --color-channelG: #1F9E3F;
+  --color-channelB: #2B62D9;
+  --color-maskHandle: #66CCFF;
+  --color-aiStart: #E08A3C;
+  --color-aiMid: #4A5A9E;
+  --color-aiEnd: #A95BB0;
+  --font-xs: 10px;
+  --font-sm: 11px;
+  --font-md: 12px;
+  --font-lg: 13px;
+  --font-xl: 15px;
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --radius-md: 6px;
+  --radius-lg: 20px;
+
+  /* Alias des variables historiques de Revela. */
+  --ink: var(--color-text);
+  --ink-mute: var(--color-muted);
+  --rule: var(--color-border);
+  --mat: var(--color-mat);
+  --accent: var(--color-brand);
+  --space: var(--space-lg);
+}

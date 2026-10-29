@@ -1,0 +1,876 @@
+/* Le chrome de l'atelier reste stable. Seul le DS utilise les variables éditables.
+ * Direction artistique : interface sombre et sobre (fond quasi noir, surfaces
+ * légèrement relevées, bordures fines, un seul accent clair pour les actions
+ * primaires). Toutes les couleurs du chrome passent par les variables --ui-*. */
+:root {
+  /* Fonds et surfaces */
+  --ui-bg: #0a0a0a;
+  --ui-surface: #111111;
+  --ui-surface-raised: #161616;
+  --ui-surface-hover: #1c1c1c;
+  --ui-surface-active: #242424;
+  /* Bordures : décoratives (fines) et de contrôles (≥ 3:1 sur les surfaces) */
+  --ui-border: #262626;
+  --ui-border-subtle: rgba(255, 255, 255, 0.08);
+  --ui-border-control: #6b6b6b;
+  --ui-border-control-hover: #8a8a8a;
+  /* Texte : la hiérarchie passe par la graisse et la taille */
+  --ui-text: #ededed;
+  --ui-text-muted: #a1a1a1;
+  --ui-text-subtle: #8f8f8f;
+  /* Contrôles */
+  --ui-control-bg: #161616;
+  --ui-control-text: #ededed;
+  --ui-control-hover: #1f1f1f;
+  --ui-input-bg: #0f0f0f;
+  --ui-input-border: #6b6b6b;
+  /* Accent unique : blanc cassé pour les actions primaires */
+  --ui-primary-bg: #ededed;
+  --ui-primary-text: #0a0a0a;
+  --ui-primary-hover: #d4d4d4;
+  /* Focus */
+  --ui-focus: #ededed;
+  --ui-focus-width: 2px;
+  --ui-focus-offset: 2px;
+  /* États sémantiques (texte ≥ 4.5:1 sur leur fond) */
+  --ui-success: #6fdc9c;
+  --ui-success-bg: #0d2116;
+  --ui-success-border: #1f4a32;
+  --ui-warning: #f2c46d;
+  --ui-warning-bg: #241b0b;
+  --ui-warning-border: #4d3a17;
+  --ui-danger: #ff9b9b;
+  --ui-danger-bg: #2a1013;
+  --ui-danger-border: #5c2329;
+  /* Fond neutre de l'iframe avant le rendu du DS (clair) */
+  --ui-preview-bg: #ffffff;
+  /* Calques */
+  --ui-backdrop: rgba(0, 0, 0, 0.66);
+  --ui-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  /* Géométrie et typographie */
+  --ui-radius: 10px;
+  --ui-radius-control: 8px;
+  --ui-radius-input: 8px;
+  --ui-font:
+    Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial,
+    sans-serif;
+  --ui-font-mono:
+    ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono',
+    monospace;
+}
+/* L'atelier est sombre ; l'iframe d'aperçu (preview-body) ne l'est pas. */
+:root:has(> body:not(.preview-body)) {
+  color-scheme: dark;
+}
+/* Le DS Revela est clair : à l'intérieur, les éléments natifs non stylés par le
+ * DS retrouvent la base claire d'origine du chrome, sans toucher aux --color-*. */
+.ds,
+.preview-body {
+  color-scheme: light;
+  --ui-text: #202b40;
+  --ui-text-muted: #58657b;
+  --ui-text-subtle: #657187;
+  --ui-border: #e2e7ef;
+  --ui-control-bg: #ffffff;
+  --ui-control-text: #26334d;
+  --ui-control-hover: #eef1f7;
+  --ui-border-control: #c5cbd5;
+  --ui-input-bg: #ffffff;
+  --ui-input-border: #bdc6d5;
+  --ui-focus: #496bca;
+  --ui-focus-width: 3px;
+  --ui-focus-offset: 3px;
+  --ui-radius-control: 7px;
+  --ui-radius-input: 6px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+.file-button {
+  border: 1px solid var(--ui-border-control);
+  background: var(--ui-control-bg);
+  border-radius: var(--ui-radius-control);
+  padding: 8px 12px;
+  color: var(--ui-control-text);
+  cursor: pointer;
+  font-weight: 550;
+}
+button:not(.ds *),
+.file-button,
+input:not(.ds *),
+select:not(.ds *),
+textarea:not(.ds *) {
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+button:hover,
+.file-button:hover {
+  background: var(--ui-control-hover);
+}
+button:not(.ds *):hover:not(:disabled),
+.file-button:hover {
+  border-color: var(--ui-border-control-hover);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+.file-button:focus-within {
+  outline: var(--ui-focus-width) solid var(--ui-focus);
+  outline-offset: var(--ui-focus-offset);
+}
+input,
+select,
+textarea {
+  border: 1px solid var(--ui-input-border);
+  border-radius: var(--ui-radius-input);
+  padding: 9px 10px;
+  min-width: 0;
+  color: inherit;
+  background: var(--ui-input-bg);
+}
+input:not(.ds *):hover,
+select:not(.ds *):hover,
+textarea:not(.ds *):hover {
+  border-color: var(--ui-border-control-hover);
+}
+::placeholder {
+  color: var(--ui-text-subtle);
+  opacity: 1;
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+p {
+  color: var(--ui-text-muted);
+}
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+h3 {
+  font-size: 17px;
+}
+small,
+.muted {
+  color: var(--ui-text-subtle);
+}
+.studio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: var(--ui-bg);
+  border-bottom: 1px solid var(--ui-border);
+  padding: 14px 28px;
+}
+.wordmark {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+  font-size: 19px;
+  letter-spacing: -1.5px;
+  font-weight: 700;
+}
+.wordmark strong {
+  font-size: 15px;
+  font-weight: 600;
+  display: block;
+  letter-spacing: -0.2px;
+}
+.wordmark div > span {
+  font-size: 12px;
+  display: block;
+  color: var(--ui-text-muted);
+}
+.header-status {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.header-status button {
+  font-size: 12px;
+  padding: 6px 11px;
+}
+.local-badge {
+  color: var(--ui-success);
+  background: var(--ui-success-bg);
+  border: 1px solid var(--ui-success-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-weight: 500;
+}
+.intro {
+  padding: 40px 28px 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-end;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  color: var(--ui-text-subtle);
+}
+.intro h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  margin: 8px 0 8px;
+  color: var(--ui-text);
+}
+.intro p {
+  margin: 0;
+  font-size: 14px;
+}
+.intro-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.intro-actions button,
+.file-button {
+  font-size: 13px;
+}
+.file-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.file-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.feedback {
+  margin: 0 28px;
+}
+.feedback p {
+  padding: 10px 14px;
+  border-radius: var(--ui-radius-control);
+}
+.error {
+  color: var(--ui-danger);
+  background: var(--ui-danger-bg);
+  border: 1px solid var(--ui-danger-border);
+  padding: 10px;
+  border-radius: var(--ui-radius-control);
+  overflow-wrap: anywhere;
+}
+.notice {
+  background: var(--ui-success-bg);
+  border: 1px solid var(--ui-success-border);
+  color: var(--ui-success);
+}
+.studio-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(400px, 1.5fr) minmax(
+      360px,
+      1.2fr
+    );
+  gap: 16px;
+  padding: 0 28px;
+  align-items: start;
+}
+.panel {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  min-width: 0;
+  overflow: hidden;
+}
+.panel-heading {
+  display: flex;
+  align-items: center;
+  padding: 18px;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-border);
+  min-height: 78px;
+}
+.panel-heading p {
+  font-size: 12px;
+  margin: 2px 0 0;
+}
+.panel-index {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  font-family: var(--ui-font-mono);
+}
+.revision-tag {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.panel-body {
+  padding: 18px;
+}
+.field {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+}
+.field input,
+.field select,
+.field textarea {
+  font-size: 13px;
+  font-weight: 400;
+  width: 100%;
+  color: var(--ui-text);
+}
+.field textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.agent-empty {
+  padding: 28px 0 12px;
+}
+.line-icon {
+  font-size: 24px;
+  color: var(--ui-text-subtle);
+  margin-bottom: 14px;
+}
+.agent-empty h3 {
+  font-size: 18px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ui-text);
+}
+.agent-empty p,
+.agent-empty li {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.agent-empty ol {
+  padding-left: 20px;
+  color: var(--ui-text-muted);
+}
+.privacy-note {
+  font-size: 12px !important;
+  line-height: 1.65 !important;
+  color: var(--ui-text-muted);
+  padding: 12px;
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  margin: 16px 0;
+}
+.panel-foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--ui-border);
+  font-size: 11px;
+  color: var(--ui-text-subtle);
+}
+.studio-primary {
+  background: var(--ui-primary-bg);
+  border-color: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+  font-weight: 600;
+}
+.studio-primary:hover:not(:disabled) {
+  background: var(--ui-primary-hover);
+  border-color: var(--ui-primary-hover);
+}
+.token-editor {
+  padding: 18px;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+.editor-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.editor-title h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+.editor-title > span {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+}
+.swatches {
+  display: flex;
+  gap: 8px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+.swatches button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--ui-border-control);
+  border-radius: 50%;
+  outline-offset: 3px;
+}
+.swatches button[aria-pressed='true'] {
+  outline: 2px solid var(--ui-focus);
+}
+.token-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.token-form button {
+  font-size: 13px;
+  min-height: 39px;
+}
+.token-hint {
+  font-size: 11px;
+  margin: 8px 0 0;
+  color: var(--ui-text-subtle);
+}
+.contrast {
+  font-size: 11px;
+  margin: 12px 0 0;
+}
+.contrast strong {
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  font-weight: 500;
+}
+.preview-controls {
+  display: flex;
+  gap: 10px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.preview-controls .field {
+  flex: 1;
+}
+.viewport-scroll {
+  background: var(--ui-bg);
+  padding: 20px 14px;
+  overflow: auto;
+  max-height: 850px;
+}
+.viewport-scroll iframe {
+  box-sizing: content-box;
+  display: block;
+  max-width: none;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-preview-bg);
+  margin: auto;
+  flex: none;
+}
+/* Catalogue du DS : îlot clair encadré dans le panneau sombre. */
+.ds-panel > .ds {
+  margin: 18px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius);
+  overflow: hidden;
+}
+.studio-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 28px;
+  font-size: 12px;
+  color: var(--ui-text-subtle);
+  gap: 20px;
+}
+.history {
+  margin: 0 28px 20px;
+  padding: 20px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+}
+.history h2 {
+  margin-bottom: 8px;
+}
+.history > p {
+  font-size: 13px;
+}
+.history ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid var(--ui-border);
+  padding: 12px 0;
+  font-size: 13px;
+}
+.history li strong {
+  font-weight: 600;
+}
+.history li p {
+  margin: 3px 0 0;
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+}
+.chat-log {
+  max-height: 400px;
+  overflow: auto;
+}
+.chat-message {
+  padding: 12px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border);
+  font-size: 13px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.chat-message.user {
+  background: var(--ui-surface-active);
+  border-color: transparent;
+}
+.chat-message strong {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-text);
+}
+.chat-message p {
+  white-space: pre-wrap;
+  margin: 6px 0 0;
+  color: var(--ui-text);
+}
+.agent-panel form > button {
+  margin: 10px 7px 0 0;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+dialog {
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: min(650px, 95vw);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: var(--ui-shadow);
+}
+dialog::backdrop {
+  background: var(--ui-backdrop);
+}
+dialog h2 {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+dialog p {
+  font-size: 13px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+td,
+th {
+  padding: 10px;
+  border-bottom: 1px solid var(--ui-border);
+  text-align: left;
+}
+th {
+  font-weight: 600;
+  color: var(--ui-text-muted);
+}
+ins {
+  color: var(--ui-success);
+  text-decoration: none;
+  background: var(--ui-success-bg);
+  border-radius: 4px;
+  padding: 3px;
+}
+del {
+  color: var(--ui-danger);
+}
+/* Sortie vers le code de Revela. */
+.code-badge {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+.code-badge.synced {
+  color: var(--ui-success);
+}
+.code-badge.outdated,
+.code-badge.absent {
+  color: var(--ui-warning);
+}
+.code-badge.modified,
+.code-badge.foreign,
+.code-badge.invalid {
+  color: var(--ui-danger);
+}
+.code-target {
+  overflow-wrap: anywhere;
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  padding: 8px 10px;
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+}
+.code-target.modified,
+.code-target.foreign,
+.code-target.invalid {
+  color: var(--ui-danger);
+  background: var(--ui-danger-bg);
+  border-color: var(--ui-danger-border);
+}
+/* Contrôles métier du diff : interface du studio, indépendante des tokens testés. */
+.checks {
+  margin-top: 16px;
+  font-size: 13px;
+}
+.checks h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.checks ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+.checks li {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.checks li strong {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+.checks-new {
+  color: var(--ui-danger);
+  background: var(--ui-danger-bg);
+  border: 1px solid var(--ui-danger-border);
+  border-radius: var(--ui-radius-control);
+  padding: 8px 8px 8px 26px;
+}
+.checks-fixed,
+.checks-ok {
+  color: var(--ui-success);
+}
+.checks details {
+  color: var(--ui-text-muted);
+}
+.checks-ack {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+  font-weight: 600;
+}
+.checks-ack input {
+  accent-color: var(--ui-primary-bg);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.diff-scroll {
+  overflow: auto;
+  max-height: 50vh;
+}
+.loading {
+  padding: 40px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* V2 : parcours clavier et contexte privé, indépendants du style du DS. */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 12px;
+  z-index: 5;
+  padding: 10px 14px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+  font-weight: 600;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.panel-nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 0 28px 18px;
+}
+.panel-nav a {
+  color: var(--ui-text-muted);
+  padding: 6px 12px;
+  border-radius: var(--ui-radius-control);
+  background: transparent;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.panel-nav a:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface-hover);
+}
+.project-brief {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface-raised);
+  border-radius: var(--ui-radius-control);
+  padding: 12px;
+  margin-bottom: 18px;
+}
+.project-brief summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ui-text);
+  border-radius: 4px;
+}
+.project-brief p {
+  font-size: 12px;
+  margin: 12px 0;
+}
+.project-brief form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.project-brief > button {
+  margin: 0 6px 6px 0;
+  font-size: 12px;
+}
+.token-search {
+  margin-top: 16px;
+}
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+.color-picker input {
+  padding: 2px;
+  height: 38px;
+  width: 64px;
+  cursor: pointer;
+}
+.draft-status {
+  color: var(--ui-warning);
+  background: var(--ui-warning-bg);
+  border: 1px solid var(--ui-warning-border);
+  padding: 10px;
+  font-size: 12px;
+  border-radius: var(--ui-radius-control);
+  margin: 12px 0 0;
+}
+.draft-status button {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+}
+h2[id] {
+  scroll-margin-top: 16px;
+}
+/* Largeurs intermédiaires : l'aperçu passe sous les deux premiers panneaux
+ * plutôt que de provoquer un défilement horizontal de la page. */
+@media (max-width: 1180px) {
+  .studio-grid {
+    grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.4fr);
+  }
+  .mobile-panel {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 740px) {
+  .studio-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 14px;
+  }
+  .intro,
+  .studio-header {
+    flex-wrap: wrap;
+  }
+  .panel-nav {
+    margin: 0 14px 18px;
+  }
+}
