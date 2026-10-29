@@ -579,3 +579,6 @@ composants ou avec un chemin invalide. 106 tests unitaires et API,
 
 **Limites.** Génération réelle à lancer par l’étudiant (son quota Claude) ;
 routeurs autres que Next.js non pris en charge pour la génération.
+
+**Essai réel (2026-10-29).** Page catalogue générée par Claude sur CDPP,
+validée par l’étudiant sur diff, affichée dans l’aperçu des composants.
