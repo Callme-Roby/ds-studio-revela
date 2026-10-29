@@ -237,9 +237,16 @@
 <main>
   <section aria-labelledby="src-title">
     <h2 id="src-title">Source</h2>
+    <label class="row">
+      Projet
+      <select id="project" aria-label="Projet DS-Studio">
+        <option value="revela">Revela</option>
+      </select>
+    </label>
     <p>
       Lit la révision validée dans DS-Studio, compare avec la collection
-      « Revela · DS-Studio », écrit seulement après votre clic, puis relit.
+      « <span id="collectionName">Revela · DS-Studio</span> », écrit seulement
+      après votre clic, puis relit.
     </p>
     <div class="row">
       <button id="read">Lire DS-Studio</button>
@@ -284,6 +291,27 @@
   // Figma n'accepte qu'un nom de domaine dans devAllowedDomains, pas une IP.
   const DS = 'http://localhost:4310/api/figma/tokens';
   const SPEC = 'http://localhost:4310/api/figma/spec';
+  const PROJECTS = 'http://localhost:4310/api/figma/projects';
+  // Projets proposés par DS-Studio : Revela et ceux cochés « plugin Figma ».
+  let projects = [{ id: 'revela', name: 'Revela', collection: 'Revela · DS-Studio', components: true }];
+  const project = () => projects.find((p) => p.id === $('project').value) || projects[0];
+  async function loadProjects() {
+    try {
+      const r = await fetch(PROJECTS, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return;
+      const list = (await r.json()).projects;
+      if (!list.length) return;
+      const keep = $('project').value;
+      projects = list;
+      $('project').innerHTML = list
+        .map((p) => `<option value="${p.id}">${p.name.replace(/[<&]/g, '')}</option>`)
+        .join('');
+      if (list.some((p) => p.id === keep)) $('project').value = keep;
+      $('collectionName').textContent = project().collection;
+    } catch {
+      /* DS-Studio absent : Revela seul, l'erreur s'affiche à la lecture. */
+    }
+  }
   const $ = (id) => document.getElementById(id);
   let source = null;
   let current = null;
@@ -301,6 +329,13 @@
       $('specText').textContent = `Pas d’export des composants : ${e.message}`;
     }
     $('specBox').hidden = false;
+    // Composants et écrans : seulement pour le projet que DS-Studio sait rendre.
+    if (!project().components) {
+      spec = null;
+      $('specBox').hidden = true;
+      $('build').checked = false;
+      return;
+    }
     if (!spec) {
       $('build').checked = false;
       $('build').disabled = true;
@@ -327,15 +362,17 @@
   async function read(quiet) {
     if (!quiet) status('Lecture de DS-Studio…');
     try {
-      const r = await fetch(DS, {
+      await loadProjects();
+      const r = await fetch(`${DS}?project=${encodeURIComponent(project().id)}`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(5000),
       });
       if (!r.ok) throw new Error((await r.json()).error || r.status);
       const next = await r.json();
       if (quiet && source && next.revision === source.revision) return;
-      source = next;
-      status(`DS-Studio : révision ${source.revision}.`);
+      source = { ...next, collection: project().collection };
+      $('collectionName').textContent = source.collection;
+      status(`${project().name} : révision ${source.revision}.`);
       await readSpec();
       parent.postMessage({ pluginMessage: { type: 'plan', source } }, '*');
     } catch (e) {
@@ -346,6 +383,14 @@
     }
   }
   $('read').onclick = () => read(false);
+  $('project').onchange = () => {
+    source = null;
+    $('collectionName').textContent = project().collection;
+    $('diff').innerHTML = '<p>Lisez DS-Studio pour voir le plan.</p>';
+    $('apply').disabled = true;
+    read(false);
+  };
+  loadProjects();
   $('follow').onchange = (e) => {
     clearInterval(timer);
     if (e.target.checked) {

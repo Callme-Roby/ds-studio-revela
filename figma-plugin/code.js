@@ -8,8 +8,9 @@ const COLLECTION = 'Revela · DS-Studio';
 const WRITTEN = 'ds-studio-value';
 const REVISION = 'ds-studio-revision';
 
+// Groupes Figma : chaque « . » de la clé devient un niveau (color.brand → color/brand).
 function variableName(key) {
-  return key.replace('.', '/');
+  return key.replaceAll('.', '/');
 }
 function figmaType(token) {
   return token.$type === 'color'
@@ -24,9 +25,15 @@ function scopesFor(key, token) {
   if (key.startsWith('font.')) return ['FONT_SIZE'];
   if (key.startsWith('space.')) return ['GAP', 'WIDTH_HEIGHT'];
   if (key.startsWith('radius.')) return ['CORNER_RADIUS'];
-  if (key.includes('text') || key.includes('muted') || key.startsWith('color.on'))
+  if (
+    key.includes('text') ||
+    key.includes('muted') ||
+    key.startsWith('color.on')
+  )
     return ['TEXT_FILL'];
   if (key.includes('border') || key.includes('focus')) return ['STROKE_COLOR'];
+  // Projet externe : nombre ou texte sans famille connue, toutes portées.
+  if (token.$type !== 'color') return ['ALL_SCOPES'];
   return ['ALL_FILLS', 'STROKE_COLOR'];
 }
 function toFigma(token) {
@@ -41,7 +48,11 @@ function display(value) {
     return (
       '#' +
       [value.r, value.g, value.b]
-        .map((c) => Math.round(c * 255).toString(16).padStart(2, '0'))
+        .map((c) =>
+          Math.round(c * 255)
+            .toString(16)
+            .padStart(2, '0'),
+        )
         .join('')
         .toUpperCase()
     );
@@ -376,9 +387,10 @@ async function buildAll(api, spec, variables) {
 
 figma.showUI(__html__, { width: 480, height: 700, themeColors: true });
 
-async function readFigma() {
+// Collection du projet choisi dans le plugin (Revela par défaut).
+async function readFigma(name = COLLECTION) {
   const all = await figma.variables.getLocalVariableCollectionsAsync();
-  const collection = all.find((c) => c.name === COLLECTION) || null;
+  const collection = all.find((c) => c.name === name) || null;
   const variables = {};
   if (!collection) return { collection, state: { revision: null, variables } };
   const mode = collection.modes[0].modeId;
@@ -400,7 +412,8 @@ async function readFigma() {
 }
 
 async function apply(source, expected, overwrite) {
-  const { collection: found, state } = await readFigma();
+  const name = source.collection || COLLECTION;
+  const { collection: found, state } = await readFigma(name);
   const p = plan(source, state);
   // Validation liée au plan affiché : si Figma ou DS-Studio a bougé, rien n'est écrit.
   if (planKey(p) !== expected)
@@ -410,8 +423,7 @@ async function apply(source, expected, overwrite) {
   // Sans accord, les variables modifiées dans Figma sont laissées intactes.
   // Un conflit de type n'est jamais remplacé.
   const replaceable = p.conflicts.filter((c) => !c.reason.startsWith('type'));
-  const collection =
-    found || figma.variables.createVariableCollection(COLLECTION);
+  const collection = found || figma.variables.createVariableCollection(name);
   const mode = collection.modes[0].modeId;
   const rows = [...p.create, ...p.update, ...(overwrite ? replaceable : [])];
   for (const row of rows) {
@@ -427,7 +439,7 @@ async function apply(source, expected, overwrite) {
   }
   collection.setPluginData(REVISION, String(source.revision));
   // Relecture complète après écriture.
-  const after = plan(source, (await readFigma()).state);
+  const after = plan(source, (await readFigma(name)).state);
   return { written: rows.length, readback: after, synced: isSynced(after) };
 }
 
@@ -442,7 +454,7 @@ async function variablesByName() {
 figma.ui.onmessage = async (msg) => {
   try {
     if (msg.type === 'plan') {
-      const { state } = await readFigma();
+      const { state } = await readFigma(msg.source.collection || COLLECTION);
       const p = plan(msg.source, state);
       figma.ui.postMessage({ type: 'plan', plan: p, key: planKey(p) });
     } else if (msg.type === 'apply') {

@@ -209,3 +209,107 @@ export function ComponentDirsCard({
     </article>
   );
 }
+
+// Aperçu du projet : adresse du serveur de développement et page catalogue des
+// composants (chemin dans l'app, ou adresse Storybook locale).
+export function PreviewCard({
+  project,
+  onChange,
+}: {
+  project: ProjectView;
+  onChange: (next: Projects) => void;
+}) {
+  const [url, setUrl] = useState(project.preview.url);
+  const [catalog, setCatalog] = useState(project.preview.catalog);
+  // Valeurs enregistrées (ou suggérées ailleurs) reportées dans les champs.
+  useEffect(() => {
+    setUrl(project.preview.url);
+    setCatalog(project.preview.catalog);
+  }, [project.preview.url, project.preview.catalog]);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  async function save(preview = { url, catalog }) {
+    setError('');
+    setNotice('');
+    try {
+      onChange(
+        await request<Projects>(`projects/${project.id}/preview`, preview),
+      );
+      setNotice('Aperçu enregistré.');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function suggest() {
+    setError('');
+    try {
+      const d = await request<{ preview: { url: string; catalog: string } }>(
+        `projects/${project.id}/detect`,
+      );
+      if (!d.preview.url && !d.preview.catalog)
+        return setNotice(
+          'Aucune adresse déduite des dépendances : saisissez-la.',
+        );
+      if (d.preview.url) setUrl(d.preview.url);
+      if (d.preview.catalog) setCatalog(d.preview.catalog);
+      setNotice(
+        'Adresse déduite des dépendances du projet : vérifiez puis enregistrez.',
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  return (
+    <article className="card">
+      <h2>Aperçu</h2>
+      <p className="muted small">
+        Le serveur de développement du projet, lancé par vous (ex.{' '}
+        <code>npm run dev</code>), affiché dans l’atelier. Adresses locales
+        seulement.
+      </p>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <label className="field">
+          Serveur de développement
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="http://localhost:3000"
+          />
+        </label>
+        <label className="field">
+          Catalogue des composants (facultatif)
+          <input
+            value={catalog}
+            onChange={(e) => setCatalog(e.target.value)}
+            placeholder="/ds-studio   ou   http://localhost:6006 (Storybook)"
+          />
+          <span className="muted small">
+            Une page de l’app qui affiche les composants (ancre
+            #NomDuComposant), ou Storybook : l’onglet Aperçu d’un composant
+            l’affiche.
+          </span>
+        </label>
+        <div className="row">
+          <button className="studio-primary">Enregistrer</button>
+          <button type="button" onClick={() => void suggest()}>
+            Suggérer
+          </button>
+        </div>
+      </form>
+      {(error || notice) && (
+        <p
+          className={error ? 'error' : 'notice'}
+          role={error ? 'alert' : 'status'}
+        >
+          {error || notice}
+        </p>
+      )}
+    </article>
+  );
+}

@@ -520,3 +520,38 @@ commandes d’installation et de connexion, vérification à la demande.
 téléchargement, archive décompressée par Windows (code.js identique), choix de
 l’IA enregistré, export prêt sur un serveur à jour. 98 tests unitaires et API,
 19 navigateur.
+
+## 2026-10-29 — Phases D4 et D6 : aperçu des projets externes, plugin par projet
+
+**Constat de l’étudiant** (projet Next.js « CDPP » branché) : le plugin Figma
+ne proposait que Revela ; pas d’iframe du projet ; pas de version visuelle des
+composants.
+
+**Choix.**
+- Aperçu : le serveur de développement du projet, lancé par l’étudiant (jamais
+  par DS-Studio), dans une iframe à largeur réelle ; adresse déduite des
+  dépendances (next → 3000, vite → 5173, astro → 4321, Storybook → 6006) ;
+  adresses locales uniquement (`frame-src` limité à localhost) ; vérification
+  « répond / ne répond pas » avec la commande à lancer.
+- Composants : DS-Studio ne compile pas une app Next ; l’aperçu d’un composant
+  passe par le projet lui-même — histoire Storybook (index.json, rapprochée par
+  nom de fichier ou titre) ou page catalogue de l’app (`/chemin#NomDuComposant`).
+- Plugin : sélecteur de projet (Revela + projets cochés « plugin Figma »),
+  collection par projet, conversion des valeurs (couleurs #RRGGBB, rgb(),
+  dimensions px/rem/em en pixels, le reste en texte), noms en groupes Figma
+  (chaque « . » devient « / »), portées « toutes » pour les familles inconnues ;
+  composants et écrans Figma pour Revela seulement.
+
+**Incidents.** Carte Aperçu recréée à l’enregistrement (clé React liée à
+l’adresse) : message de confirmation perdu, trouvé par le test navigateur.
+Ports à un chiffre refusés par le motif d’adresse locale. Vue « Aperçu » d’un
+projet externe ramenée à la vue d’ensemble par le routage : nom brut de la vue
+conservé.
+
+**Preuves.** 105 tests unitaires et API (conversion, histoires, plugin
+multi-projets sur API simulée : deux collections distinctes, Revela intact ;
+routes plugin et aperçu), 20 navigateur (faux serveur de dev : page, composant
+dans le catalogue, instructions quand le serveur s’arrête), 20 lanceur.
+
+**Limites.** Pas de page catalogue générée automatiquement (prévu avec l’agent
+de code des projets externes, D5) ; pas d’essai encore dans Figma réel.

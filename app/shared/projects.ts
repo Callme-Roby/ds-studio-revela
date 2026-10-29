@@ -97,11 +97,38 @@ export const componentSourceSchema = z
   .strict();
 export type ComponentSource = z.infer<typeof componentSourceSchema>;
 
+// Aperçu : serveur de développement du projet (local uniquement) et page
+// catalogue des composants (chemin dans l'app, ou URL Storybook locale).
+export const localUrl =
+  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/[^\s]*)?$/;
+export const previewSchema = z
+  .object({
+    url: z
+      .string()
+      .trim()
+      .max(300)
+      .refine(
+        (u) => u === '' || localUrl.test(u),
+        'Adresse locale attendue (ex. http://localhost:3000).',
+      ),
+    catalog: z
+      .string()
+      .trim()
+      .max(300)
+      .refine(
+        (c) => c === '' || /^\/[^\s]*$/.test(c) || localUrl.test(c),
+        'Chemin dans l’app (ex. /ds-studio) ou adresse locale (ex. Storybook).',
+      ),
+  })
+  .strict();
+export type PreviewConfig = z.infer<typeof previewSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
   createdAt: z.string().max(40),
   tokens: z.array(tokenSourceSchema).max(10).default([]),
   components: z.array(componentSourceSchema).max(10).default([]),
+  preview: previewSchema.default({ url: '', catalog: '' }),
 });
 export type Project = z.infer<typeof projectSchema>;
 export type NewProject = z.infer<typeof newProjectSchema>;
@@ -127,4 +154,5 @@ export type ProjectView = {
   exists: boolean;
   tokens: TokenSource[];
   components: ComponentSource[];
+  preview: PreviewConfig;
 };

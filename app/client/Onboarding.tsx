@@ -112,6 +112,9 @@ export default function Onboarding({
         .filter((x) => tokens.includes(x.file))
         .map(({ file, format }) => ({ file, format }));
       await request(`projects/${projectId}/sources`, { tokens: t });
+      // Adresse d'aperçu déduite des dépendances (modifiable ensuite).
+      if (found!.preview.url || found!.preview.catalog)
+        await request(`projects/${projectId}/preview`, found!.preview);
       onProjects(
         await request<Projects>(`projects/${projectId}/component-dirs`, {
           components: dirs.map((dir) => ({
@@ -350,10 +353,23 @@ export default function Onboarding({
                 </label>
               ))}
             </fieldset>
-            {found.scripts.length > 0 && (
+            {(found.scripts.length > 0 || found.preview.url) && (
               <p className="muted small">
-                Pour l’aperçu (bientôt) : lancez le projet vous-même, par ex.{' '}
-                <code>npm run {found.scripts[0].name}</code>.
+                Aperçu : lancez le projet vous-même
+                {found.scripts.length > 0 && (
+                  <>
+                    {' '}
+                    (<code>npm run {found.scripts[0].name}</code>)
+                  </>
+                )}
+                {found.preview.url && (
+                  <>
+                    {' '}
+                    ; DS-Studio l’affichera depuis{' '}
+                    <code>{found.preview.url}</code>
+                  </>
+                )}
+                .
               </p>
             )}
             <div className="dialog-actions">

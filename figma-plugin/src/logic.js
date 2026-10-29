@@ -7,8 +7,9 @@ export const COLLECTION = 'Revela · DS-Studio';
 export const WRITTEN = 'ds-studio-value';
 export const REVISION = 'ds-studio-revision';
 
+// Groupes Figma : chaque « . » de la clé devient un niveau (color.brand → color/brand).
 export function variableName(key) {
-  return key.replace('.', '/');
+  return key.replaceAll('.', '/');
 }
 export function figmaType(token) {
   return token.$type === 'color'
@@ -23,9 +24,15 @@ export function scopesFor(key, token) {
   if (key.startsWith('font.')) return ['FONT_SIZE'];
   if (key.startsWith('space.')) return ['GAP', 'WIDTH_HEIGHT'];
   if (key.startsWith('radius.')) return ['CORNER_RADIUS'];
-  if (key.includes('text') || key.includes('muted') || key.startsWith('color.on'))
+  if (
+    key.includes('text') ||
+    key.includes('muted') ||
+    key.startsWith('color.on')
+  )
     return ['TEXT_FILL'];
   if (key.includes('border') || key.includes('focus')) return ['STROKE_COLOR'];
+  // Projet externe : nombre ou texte sans famille connue, toutes portées.
+  if (token.$type !== 'color') return ['ALL_SCOPES'];
   return ['ALL_FILLS', 'STROKE_COLOR'];
 }
 export function toFigma(token) {
@@ -40,7 +47,11 @@ export function display(value) {
     return (
       '#' +
       [value.r, value.g, value.b]
-        .map((c) => Math.round(c * 255).toString(16).padStart(2, '0'))
+        .map((c) =>
+          Math.round(c * 255)
+            .toString(16)
+            .padStart(2, '0'),
+        )
         .join('')
         .toUpperCase()
     );

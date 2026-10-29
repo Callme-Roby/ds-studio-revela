@@ -28,11 +28,14 @@ import { ExternalTokens } from './external-tokens.js';
 import { SettingsStore, settingsSchema } from './settings.js';
 import { detectProject } from './detect.js';
 import { zip } from './zip.js';
+import { pluginTokens } from './figma-external.js';
 import { cloneRepo, gitFetch, gitPush, gitStatus } from './project-git.js';
 import { externalPath, externalProposeSchema } from './components.js';
 import {
   componentSourceSchema,
+  localUrl,
   newProjectSchema as cloneBase,
+  previewSchema,
   tokenSourceSchema,
 } from '../shared/projects.js';
 import {
@@ -154,7 +157,7 @@ export async function createStudioServer(options: {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader(
       'Content-Security-Policy',
-      `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'${options.dev ? ' ws://127.0.0.1:*' : ''}; frame-ancestors 'self'; base-uri 'none'; form-action 'self'`,
+      `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'${options.dev ? ' ws://127.0.0.1:*' : ''}; frame-src 'self' http://localhost:* http://127.0.0.1:* http://[::1]:* https://localhost:*; frame-ancestors 'self'; base-uri 'none'; form-action 'self'`,
     );
     try {
       const url = new URL(req.url ?? '/', origin);
@@ -163,7 +166,8 @@ export async function createStudioServer(options: {
       // nom de domaine : localhost est accepté pour cette route uniquement.
       const figmaRoute =
         (url.pathname === '/api/figma/tokens' ||
-          url.pathname === '/api/figma/spec') &&
+          url.pathname === '/api/figma/spec' ||
+          url.pathname === '/api/figma/projects') &&
         req.headers.origin === 'null';
       // Figma tourne sur une page publique : Chromium envoie d'abord un
       // préflight « Private Network Access » avant d'atteindre localhost.
@@ -230,6 +234,50 @@ export async function createStudioServer(options: {
           if (url.pathname === '/api/state') return send(200, store.snapshot());
           if (url.pathname === '/api/code')
             return send(200, await code.status());
+          if (url.pathname === '/api/figma/projects') {
+            // Projets proposés au plugin : Revela et ceux cochés « plugin Figma ».
+            if (figmaPlugin)
+              res.setHeader('Access-Control-Allow-Origin', 'null');
+            const { projects: all } = await projects.list();
+            return send(200, {
+              projects: all
+                .filter((p) => p.builtin || p.figma.plugin)
+                .map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  collection: p.builtin
+                    ? 'Revela · DS-Studio'
+                    : `${p.name} · DS-Studio`,
+                  components: p.builtin,
+                })),
+            });
+          }
+          if (
+            url.pathname === '/api/figma/tokens' &&
+            url.searchParams.get('project') &&
+            url.searchParams.get('project') !== 'revela'
+          ) {
+            if (figmaPlugin)
+              res.setHeader('Access-Control-Allow-Origin', 'null');
+            const id = z
+              .string()
+              .regex(/^[a-z0-9-]{1,40}$/)
+              .parse(url.searchParams.get('project'));
+            const p = await projects.project(id);
+            if (!p.figma.plugin)
+              throw new StudioError(
+                'Ce projet n’est pas synchronisé avec Figma (case « plugin Figma »).',
+                403,
+              );
+            const service = new ExternalTokens(p, projects.stateDir(id));
+            const { tokens } = await service.read();
+            const history = await service.history();
+            return send(200, {
+              revision: history[0]?.revision ?? 0,
+              collection: `${p.name} · DS-Studio`,
+              tokens: pluginTokens(tokens),
+            });
+          }
           if (url.pathname === '/api/figma/tokens') {
             if (figmaPlugin)
               res.setHeader('Access-Control-Allow-Origin', 'null');
@@ -271,10 +319,75 @@ export async function createStudioServer(options: {
               await detectProject((await projects.project(detect[1])).root),
             );
           const projectGet = url.pathname.match(
-            /^\/api\/projects\/([a-z0-9-]{1,40})\/(git|components|components\/file)$/,
+            /^\/api\/projects\/([a-z0-9-]{1,40})\/(git|components|components\/file|preview\/check|stories)$/,
           );
           if (projectGet) {
             const [, id, what] = projectGet;
+            if (what === 'preview/check') {
+              // Le serveur de dev répond-il ? Adresse locale seulement.
+              const target = (await projects.project(id)).preview.url;
+              if (!target || !localUrl.test(target))
+                return send(200, {
+                  reachable: false,
+                  detail: 'Aucune adresse d’aperçu.',
+                });
+              try {
+                const r = await fetch(target, {
+                  signal: AbortSignal.timeout(3000),
+                  redirect: 'manual',
+                });
+                return send(200, {
+                  reachable: true,
+                  detail: `Répond (${r.status}).`,
+                });
+              } catch {
+                return send(200, {
+                  reachable: false,
+                  detail:
+                    'Ne répond pas : lancez le serveur de développement du projet.',
+                });
+              }
+            }
+            if (what === 'stories') {
+              // Histoires Storybook (index.json), si le catalogue est un Storybook local.
+              const catalog = (await projects.project(id)).preview.catalog;
+              if (!localUrl.test(catalog)) return send(200, { stories: [] });
+              try {
+                const r = await fetch(
+                  catalog.replace(/\/$/, '') + '/index.json',
+                  {
+                    signal: AbortSignal.timeout(3000),
+                  },
+                );
+                const index = (await r.json()) as {
+                  entries?: Record<
+                    string,
+                    {
+                      id: string;
+                      title: string;
+                      name: string;
+                      importPath?: string;
+                      type?: string;
+                    }
+                  >;
+                };
+                const stories = Object.values(index.entries ?? {})
+                  .filter((e) => e.type !== 'docs')
+                  .slice(0, 2000)
+                  .map(({ id, title, name, importPath }) => ({
+                    id,
+                    title,
+                    name,
+                    importPath: importPath ?? '',
+                  }));
+                return send(200, { stories });
+              } catch {
+                return send(200, {
+                  stories: [],
+                  detail: 'Storybook ne répond pas.',
+                });
+              }
+            }
             if (what === 'git')
               return send(
                 200,
@@ -439,7 +552,7 @@ export async function createStudioServer(options: {
           return send(200, { state, code: await code.write() });
         }
         const projectRoute = url.pathname.match(
-          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push)$/,
+          /^\/api\/projects\/([a-z0-9-]{1,40})\/(sources|preview|component-dirs|tokens\/propose|tokens\/commit|tokens\/undo|components\/propose|components\/commit|components\/discard|components\/undo|git\/fetch|git\/push)$/,
         );
         if (projectRoute) {
           const [, id, action] = projectRoute;
@@ -449,6 +562,10 @@ export async function createStudioServer(options: {
               .strict()
               .parse(body);
             await projects.setSources(id, b.tokens);
+            return send(200, await projects.list());
+          }
+          if (action === 'preview') {
+            await projects.setPreview(id, previewSchema.parse(body));
             return send(200, await projects.list());
           }
           if (action === 'component-dirs') {

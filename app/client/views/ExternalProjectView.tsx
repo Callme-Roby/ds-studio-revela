@@ -4,13 +4,12 @@ import type { Projects } from '../ProjectSwitcher.js';
 import type { ProjectView, TokenSource } from '../../shared/projects.js';
 import { formatOf } from '../../shared/token-sources.js';
 import { useExternalTokens } from './ExternalVariablesView.js';
-import { ComponentDirsCard, GitCard } from './ProjectCards.js';
+import { ComponentDirsCard, GitCard, PreviewCard } from './ProjectCards.js';
 
 // Projet externe : fiche du projet (dossier, Git, Figma) et ce qui reste à
 // brancher. Variables : fichiers de tokens déclarés ici (étape D2) ;
 // composants, aperçu, IA et Figma arrivent aux étapes D3 à D6.
 const steps = [
-  ['D4', 'Aperçu', 'le serveur de développement du projet, à largeur réelle'],
   [
     'D5',
     'Analyse par l’IA',
@@ -63,6 +62,7 @@ export default function ExternalProjectView({
         )}
       </article>
       <GitCard project={project} />
+      <PreviewCard project={project} onChange={onChange} />
       <ComponentDirsCard project={project} onChange={onChange} />
       <article className="card">
         <h2>Fichiers de tokens</h2>

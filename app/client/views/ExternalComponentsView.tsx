@@ -4,11 +4,13 @@ import CodeDiffDialog from '../CodeDiffDialog.js';
 import type { ProjectView } from '../../shared/projects.js';
 import type { CodeProposal } from '../../server/components.js';
 import type { CodeEntry } from './HistoryView.js';
+import {
+  componentName,
+  storiesFor,
+  type Story,
+} from '../../shared/component-preview.js';
 
 type Files = { files: { path: string; size: number }[]; history: CodeEntry[] };
-
-// Composants d'un projet externe : fichiers des dossiers déclarés, édités sur
-// diff et validation ; commit Git facultatif des seuls fichiers validés.
 export default function ExternalComponentsView({
   project,
   isRepo,
@@ -24,6 +26,19 @@ export default function ExternalComponentsView({
   }>();
   const [text, setText] = useState('');
   const [search, setSearch] = useState('');
+  const catalog = project.preview.catalog;
+  const storybook = /^https?:/.test(catalog);
+  const [tab, setTab] = useState<'apercu' | 'code'>(
+    catalog ? 'apercu' : 'code',
+  );
+  const [stories, setStories] = useState<Story[]>();
+  const [story, setStory] = useState('');
+  useEffect(() => {
+    if (storybook)
+      request<{ stories: Story[] }>(`projects/${project.id}/stories`)
+        .then((r) => setStories(r.stories))
+        .catch(() => setStories([]));
+  }, [project.id, catalog]);
   const [proposal, setProposal] = useState<CodeProposal>();
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -152,49 +167,79 @@ export default function ExternalComponentsView({
                   <code>{file}</code>
                 </p>
               </div>
-            </header>
-            <div className="detail-body">
-              {ready ? (
-                <textarea
-                  className="code-text"
-                  spellCheck={false}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  aria-label={`Code de ${file}`}
-                />
-              ) : (
-                <p className="muted">Chargement de {file}…</p>
-              )}
-              <div className="code-actions">
-                <span className="muted small">
-                  {dirty
-                    ? 'Modifié, non proposé · rien n’est écrit avant validation'
-                    : file}
-                </span>
+              <div
+                className="tabs"
+                role="tablist"
+                aria-label="Affichage du composant"
+              >
                 <button
-                  onClick={() => setText(loaded?.original ?? '')}
-                  disabled={!dirty}
+                  role="tab"
+                  aria-selected={tab === 'apercu'}
+                  onClick={() => setTab('apercu')}
                 >
-                  Rétablir
+                  Aperçu
                 </button>
                 <button
-                  className="studio-primary"
-                  disabled={!dirty || !!busy}
-                  onClick={() =>
-                    void run('Préparation du diff…', async () =>
-                      setProposal(
-                        await request<CodeProposal>(`${base}/propose`, {
-                          changes: [{ path: file, content: text }],
-                          message: `Édition de ${file}`,
-                        }),
-                      ),
-                    )
-                  }
+                  role="tab"
+                  aria-selected={tab === 'code'}
+                  onClick={() => setTab('code')}
                 >
-                  Proposer ce changement
+                  Code
                 </button>
               </div>
-            </div>
+            </header>
+            {tab === 'apercu' ? (
+              <ComponentPreview
+                project={project}
+                file={file}
+                stories={stories}
+                story={story}
+                onStory={setStory}
+              />
+            ) : (
+              <div className="detail-body">
+                {ready ? (
+                  <textarea
+                    className="code-text"
+                    spellCheck={false}
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    aria-label={`Code de ${file}`}
+                  />
+                ) : (
+                  <p className="muted">Chargement de {file}…</p>
+                )}
+                <div className="code-actions">
+                  <span className="muted small">
+                    {dirty
+                      ? 'Modifié, non proposé · rien n’est écrit avant validation'
+                      : file}
+                  </span>
+                  <button
+                    onClick={() => setText(loaded?.original ?? '')}
+                    disabled={!dirty}
+                  >
+                    Rétablir
+                  </button>
+                  <button
+                    className="studio-primary"
+                    disabled={!dirty || !!busy}
+                    onClick={() =>
+                      void run('Préparation du diff…', async () =>
+                        setProposal(
+                          await request<CodeProposal>(`${base}/propose`, {
+                            changes: [{ path: file, content: text }],
+                            message: `Édition de ${file}`,
+                          }),
+                        ),
+                      )
+                    }
+                  >
+                    Proposer ce changement
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </div>
@@ -229,5 +274,95 @@ export default function ExternalComponentsView({
         }
       />
     </>
+  );
+}
+
+// Aperçu visuel d'un composant : dans le Storybook du projet, ou dans une page
+// catalogue de l'app (section #NomDuComposant), servis par le projet lui-même.
+function ComponentPreview({
+  project,
+  file,
+  stories,
+  story,
+  onStory,
+}: {
+  project: ProjectView;
+  file: string;
+  stories?: Story[];
+  story: string;
+  onStory: (id: string) => void;
+}) {
+  const { url, catalog } = project.preview;
+  const name = componentName(file);
+  if (!catalog)
+    return (
+      <div className="detail-body">
+        <p className="notice">
+          Pas de catalogue configuré pour ce projet. Dans la vue d’ensemble,
+          carte « Aperçu », indiquez une page de l’app qui affiche les
+          composants (ex. <code>/ds-studio</code>, une section{' '}
+          <code>#{name}</code> par composant) ou l’adresse de Storybook.
+        </p>
+      </div>
+    );
+  if (/^https?:/.test(catalog)) {
+    if (!stories)
+      return <p className="detail-body muted">Lecture de Storybook…</p>;
+    const matches = storiesFor(stories, file);
+    const current = matches.find((s) => s.id === story) ?? matches[0];
+    if (!current)
+      return (
+        <div className="detail-body">
+          <p className="notice">
+            Aucune histoire Storybook trouvée pour <code>{name}</code>
+            {stories.length ? '' : ' (Storybook ne répond pas ?)'}.
+          </p>
+        </div>
+      );
+    const base = catalog.replace(/\/$/, '');
+    return (
+      <div className="detail-body">
+        {matches.length > 1 && (
+          <label className="inline-field">
+            Histoire
+            <select
+              value={current.id}
+              onChange={(e) => onStory(e.target.value)}
+            >
+              {matches.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} · {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <iframe
+          className="component-frame"
+          title={`Aperçu de ${name}`}
+          src={`${base}/iframe.html?id=${encodeURIComponent(current.id)}&viewMode=story`}
+        />
+      </div>
+    );
+  }
+  if (!url)
+    return (
+      <p className="detail-body notice">
+        Indiquez d’abord l’adresse du serveur de développement (vue d’ensemble,
+        carte « Aperçu »).
+      </p>
+    );
+  const src = `${url.replace(/\/$/, '')}${catalog}#${encodeURIComponent(name)}`;
+  return (
+    <div className="detail-body">
+      <p className="muted small">
+        <code>{src}</code>
+      </p>
+      <iframe
+        className="component-frame"
+        title={`Aperçu de ${name}`}
+        src={src}
+      />
+    </div>
   );
 }

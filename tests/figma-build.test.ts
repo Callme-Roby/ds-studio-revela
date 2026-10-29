@@ -400,3 +400,41 @@ test('export réel capturé dans DS-Studio : construit en entier, liaisons et in
   const all = root.findAll(() => true);
   assert.ok(all.every((n) => Number.isFinite(n.width) && Number.isFinite(n.x)));
 });
+
+test('plugin multi-projets : chaque projet dans sa collection, Revela intact', async () => {
+  const { send, figma } = await runPlugin();
+  const revela = { revision: 0, tokens: seed };
+  const p1 = await send({ type: 'plan', source: revela });
+  await send({ type: 'apply', source: revela, key: p1.key });
+  const site = {
+    revision: 2,
+    collection: 'Site vitrine · DS-Studio',
+    tokens: {
+      brand: { $type: 'color', $value: '#3355FF' },
+      'space.md': { $type: 'dimension', $value: 16 },
+      font: { $type: 'string', $value: 'Inter' },
+    },
+  };
+  const p2 = await send({ type: 'plan', source: site });
+  assert.equal((p2.plan as { create: unknown[] }).create.length, 3);
+  const applied = await send({ type: 'apply', source: site, key: p2.key });
+  assert.equal(applied.type, 'applied');
+  assert.equal(applied.synced, true);
+  const cols = (await figma.variables.getLocalVariableCollectionsAsync()) as {
+    name: string;
+    variableIds: string[];
+  }[];
+  assert.deepEqual(
+    cols.map((c) => [c.name, c.variableIds.length]),
+    [
+      ['Revela · DS-Studio', Object.keys(seed).length],
+      ['Site vitrine · DS-Studio', 3],
+    ],
+  );
+  // Relire Revela ensuite : toujours à jour, rien de mélangé.
+  const again = await send({ type: 'plan', source: revela });
+  assert.equal(
+    (again.plan as { unchanged: number }).unchanged,
+    Object.keys(seed).length,
+  );
+});

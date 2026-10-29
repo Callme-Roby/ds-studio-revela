@@ -1107,3 +1107,16 @@ a.button.studio-primary:hover {
 .agent-row .code-block {
   font-size: 11.5px;
 }
+
+/* Aperçu d’un composant ou d’une page du projet. */
+.component-frame {
+  width: 100%;
+  height: 560px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-preview-bg);
+}
+.page-input {
+  width: 180px;
+  font-family: var(--ui-font-mono);
+}

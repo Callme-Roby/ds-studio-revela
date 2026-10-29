@@ -25,6 +25,8 @@ Le plugin apparaît dans **Plugins → Development → Revela · DS-Studio**.
 ## Utiliser
 
 1. Lancez le plugin (clic droit sur la toile → **Plugins → Development**).
+   Choisissez le **projet** : Revela, ou un projet externe coché « plugin
+   Figma » dans DS-Studio (ses variables vont dans « <Projet> · DS-Studio »).
 2. **Lire DS-Studio** : le plugin affiche « DS-Studio : révision N » et le plan :
    variables à créer, à modifier, en conflit, déjà à jour.
 3. **Appliquer N changement(s) à Figma** : écriture, puis relecture.

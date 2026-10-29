@@ -5,6 +5,7 @@ import Onboarding from './Onboarding.js';
 import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
 import ExternalProjectView from './views/ExternalProjectView.js';
 import ExternalComponentsView from './views/ExternalComponentsView.js';
+import ExternalPreviewView from './views/ExternalPreviewView.js';
 import ExternalVariablesView, {
   ExternalHistoryView,
 } from './views/ExternalVariablesView.js';
@@ -83,18 +84,20 @@ const views = [
   },
 ] as const;
 type View = (typeof views)[number]['id'];
-// Projet externe : parties disponibles à ce stade (D3).
+// Projet externe : parties disponibles à ce stade (D4).
 const externalViews = [
   { id: 'apercu', label: 'Vue d’ensemble', icon: '◎' },
+  { id: 'ecran', label: 'Aperçu', icon: '▣' },
   { id: 'variables', label: 'Variables', icon: '◐' },
   { id: 'composants', label: 'Composants', icon: '◇' },
   { id: 'historique', label: 'Historique', icon: '↺' },
 ] as const;
-const readHash = (): { view: View; item?: string } => {
+// raw : nom brut de la vue, pour les parties propres à un projet externe.
+const readHash = (): { view: View; item?: string; raw: string } => {
   const [view, item] = location.hash.replace(/^#\/?/, '').split('/');
   return views.some((v) => v.id === view)
-    ? { view: view as View, item }
-    : { view: 'apercu' };
+    ? { view: view as View, item, raw: view }
+    : { view: 'apercu', raw: view };
 };
 
 export default function App() {
@@ -328,8 +331,8 @@ export default function App() {
   );
   const external =
     activeProject && !activeProject.builtin ? activeProject : undefined;
-  const externalView = externalViews.some((v) => v.id === route.view)
-    ? route.view
+  const externalView: string = externalViews.some((v) => v.id === route.raw)
+    ? route.raw
     : 'apercu';
   const codeRevision = codeHistory[0]?.revision ?? 0;
   return (
@@ -456,6 +459,9 @@ export default function App() {
               project={external}
               onChange={setProjects}
             />
+          )}
+          {externalView === 'ecran' && (
+            <ExternalPreviewView key={external.id} project={external} />
           )}
           {externalView === 'variables' && (
             <ExternalVariablesView key={external.id} project={external} />

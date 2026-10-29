@@ -4,9 +4,10 @@
 
 figma.showUI(__html__, { width: 480, height: 700, themeColors: true });
 
-async function readFigma() {
+// Collection du projet choisi dans le plugin (Revela par défaut).
+async function readFigma(name = COLLECTION) {
   const all = await figma.variables.getLocalVariableCollectionsAsync();
-  const collection = all.find((c) => c.name === COLLECTION) || null;
+  const collection = all.find((c) => c.name === name) || null;
   const variables = {};
   if (!collection) return { collection, state: { revision: null, variables } };
   const mode = collection.modes[0].modeId;
@@ -28,7 +29,8 @@ async function readFigma() {
 }
 
 async function apply(source, expected, overwrite) {
-  const { collection: found, state } = await readFigma();
+  const name = source.collection || COLLECTION;
+  const { collection: found, state } = await readFigma(name);
   const p = plan(source, state);
   // Validation liée au plan affiché : si Figma ou DS-Studio a bougé, rien n'est écrit.
   if (planKey(p) !== expected)
@@ -38,8 +40,7 @@ async function apply(source, expected, overwrite) {
   // Sans accord, les variables modifiées dans Figma sont laissées intactes.
   // Un conflit de type n'est jamais remplacé.
   const replaceable = p.conflicts.filter((c) => !c.reason.startsWith('type'));
-  const collection =
-    found || figma.variables.createVariableCollection(COLLECTION);
+  const collection = found || figma.variables.createVariableCollection(name);
   const mode = collection.modes[0].modeId;
   const rows = [...p.create, ...p.update, ...(overwrite ? replaceable : [])];
   for (const row of rows) {
@@ -55,7 +56,7 @@ async function apply(source, expected, overwrite) {
   }
   collection.setPluginData(REVISION, String(source.revision));
   // Relecture complète après écriture.
-  const after = plan(source, (await readFigma()).state);
+  const after = plan(source, (await readFigma(name)).state);
   return { written: rows.length, readback: after, synced: isSynced(after) };
 }
 
@@ -70,7 +71,7 @@ async function variablesByName() {
 figma.ui.onmessage = async (msg) => {
   try {
     if (msg.type === 'plan') {
-      const { state } = await readFigma();
+      const { state } = await readFigma(msg.source.collection || COLLECTION);
       const p = plan(msg.source, state);
       figma.ui.postMessage({ type: 'plan', plan: p, key: planKey(p) });
     } else if (msg.type === 'apply') {

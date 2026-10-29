@@ -137,7 +137,21 @@ créer un **commit Git local** des seuls fichiers validés.
 à pousser et à récupérer ; « Vérifier le dépôt distant » récupère l’état
 distant, « Pousser N commit(s) » envoie après confirmation. Jamais de
 force-push : l’envoi est refusé si le distant a avancé. Aperçu et analyse par
-l’IA arrivent aux étapes D4 et D5.
+l’IA arrivent à l’étape D5.
+
+**Aperçu d’un projet externe** : carte « Aperçu » de la vue d’ensemble —
+adresse de son serveur de développement (déduite des dépendances : Next 3000,
+Vite 5173…), lancé par vous (`npm run dev`). La vue **Aperçu** l’affiche à
+largeur réelle (champ pour choisir la page). Pour voir un composant seul,
+indiquez un **catalogue** : une page de l’app avec une section
+`#NomDuComposant` par composant (ex. `/ds-studio`), ou l’adresse de
+Storybook ; l’onglet **Aperçu** de chaque composant l’affiche. Adresses
+locales uniquement ; DS-Studio ne lance jamais le projet.
+
+**Figma par projet** : le plugin propose un sélecteur de projet (Revela et
+les projets cochés « plugin Figma ») ; les variables d’un projet externe vont
+dans la collection « <Projet> · DS-Studio » (couleurs #RRGGBB, dimensions en
+pixels, le reste en texte). Composants et écrans Figma : Revela seulement.
 
 ## Écrire les tokens de Revela dans un autre dossier
 

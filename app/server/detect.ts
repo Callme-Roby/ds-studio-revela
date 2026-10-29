@@ -26,6 +26,8 @@ export type Detection = {
   tokens: { file: string; format: 'css' | 'scss' | 'json'; count: number }[];
   components: { dir: string; files: number }[];
   scripts: { name: string; command: string }[];
+  // Adresse probable du serveur de dev et de Storybook, d'après les dépendances.
+  preview: { url: string; catalog: string };
   truncated: boolean;
 };
 
@@ -86,12 +88,31 @@ export async function detectProject(root: string): Promise<Detection> {
   }
   await walk(root, '', 0);
   let scripts: Detection['scripts'] = [];
+  const preview = { url: '', catalog: '' };
   try {
     const pkg = JSON.parse(
       await fs.readFile(path.join(root, 'package.json'), 'utf8'),
     ) as {
       scripts?: Record<string, string>;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
     };
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    const port =
+      deps.next || deps.nuxt || deps['react-scripts']
+        ? 3000
+        : deps.astro
+          ? 4321
+          : deps.vite || deps['@sveltejs/kit']
+            ? 5173
+            : 0;
+    if (port) preview.url = `http://localhost:${port}`;
+    if (
+      Object.keys(deps).some(
+        (d) => d === 'storybook' || d.startsWith('@storybook/'),
+      )
+    )
+      preview.catalog = 'http://localhost:6006';
     scripts = Object.entries(pkg.scripts ?? {})
       .filter(([n]) => /^(dev|start|serve|storybook|preview)$/.test(n))
       .map(([name, command]) => ({
@@ -117,6 +138,7 @@ export async function detectProject(root: string): Promise<Detection> {
     tokens: tokens.slice(0, 8),
     components: components.slice(0, 8),
     scripts,
+    preview,
     truncated,
   };
 }

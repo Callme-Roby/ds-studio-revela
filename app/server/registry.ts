@@ -12,6 +12,7 @@ import {
   type Registry,
   type TokenSource,
   type ComponentSource,
+  type PreviewConfig,
 } from '../shared/projects.js';
 
 // Chemin d'un fichier du projet : relatif, résolu dans son dossier, aucun
@@ -137,6 +138,7 @@ export class ProjectRegistry {
           exists,
           tokens: p.tokens,
           components: p.components,
+          preview: p.preview,
         }
       : {
           id: builtinId,
@@ -149,6 +151,7 @@ export class ProjectRegistry {
           exists,
           tokens: [{ file: 'ds/tokens.css', format: 'css' }],
           components: [{ dir: 'ds/src', extensions: ['tsx', 'ts', 'css'] }],
+          preview: { url: '', catalog: '' },
         };
   }
 
@@ -196,6 +199,7 @@ export class ProjectRegistry {
         createdAt: new Date().toISOString(),
         tokens: [],
         components: [],
+        preview: { url: '', catalog: '' },
       };
       await fs.mkdir(this.stateDir(id), { recursive: true, mode: 0o700 });
       r.projects.push(project);
@@ -220,6 +224,14 @@ export class ProjectRegistry {
           );
       }
       p.components = components;
+    });
+  }
+
+  setPreview(id: string, preview: PreviewConfig) {
+    return this.change((r) => {
+      const p = r.projects.find((x) => x.id === id);
+      if (!p) throw new StudioError('Projet inconnu ou intégré.', 404);
+      p.preview = preview;
     });
   }
 

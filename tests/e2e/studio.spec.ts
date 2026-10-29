@@ -855,3 +855,81 @@ test('démarrage : brancher un dossier local, détection cochée, IA choisie, at
     await rm(folder, { recursive: true, force: true });
   }
 });
+
+test('projet externe : aperçu par son serveur de dev et composant dans la page catalogue', async ({
+  page,
+}) => {
+  const http = await import('node:http');
+  const { mkdtemp, mkdir, rm, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  // Faux serveur de développement du projet.
+  const dev = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(
+      req.url?.startsWith('/ds-studio')
+        ? '<!doctype html><section id="Button"><button>Bouton du projet</button></section>'
+        : '<!doctype html><h1>Accueil du projet</h1>',
+    );
+  });
+  await new Promise<void>((r) => dev.listen(0, '127.0.0.1', r));
+  const port = (dev.address() as { port: number }).port;
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-e2e-prev-'));
+  await mkdir(path.join(folder, 'src', 'components'), { recursive: true });
+  await writeFile(
+    path.join(folder, 'src', 'components', 'Button.tsx'),
+    'export const Button = () => null;\n',
+  );
+  const { csrf } = await (await page.request.get('/api/bootstrap')).json();
+  const headers = { 'X-DS-Studio': csrf, Origin: 'http://127.0.0.1:4318' };
+  try {
+    await page.request.post('/api/projects/add', {
+      headers,
+      data: {
+        name: 'Vitrine',
+        root: folder,
+        source: { type: 'local', url: '' },
+        figma: { plugin: false, fileUrl: '' },
+      },
+    });
+    await page.request.post('/api/projects/vitrine/component-dirs', {
+      headers,
+      data: { components: [{ dir: 'src/components', extensions: ['tsx'] }] },
+    });
+    await page.goto('/#/apercu');
+    await page
+      .getByLabel('Serveur de développement')
+      .fill(`http://127.0.0.1:${port}`);
+    await page.getByLabel(/Catalogue des composants/).fill('/ds-studio');
+    await page
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .first()
+      .click();
+    await expect(page.getByText('Aperçu enregistré.')).toBeVisible();
+    await page.getByRole('link', { name: /Aperçu/ }).click();
+    const frame = page.frameLocator('iframe[title="Aperçu de Vitrine"]');
+    await expect(
+      frame.getByRole('heading', { name: 'Accueil du projet' }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: /Composants/ }).click();
+    await page.getByRole('tab', { name: 'Aperçu' }).click();
+    await expect(
+      page.locator('iframe[title="Aperçu de Button"]'),
+    ).toHaveAttribute('src', `http://127.0.0.1:${port}/ds-studio#Button`);
+    await expect(
+      page.frameLocator('iframe[title="Aperçu de Button"]').getByRole('button'),
+    ).toHaveText('Bouton du projet');
+    // Serveur arrêté : instructions de lancement plutôt qu'une iframe vide.
+    await new Promise<void>((r) => dev.close(() => r()));
+    dev.closeAllConnections();
+    await page.getByRole('link', { name: /Aperçu/ }).click();
+    await expect(page.getByText('npm run dev')).toBeVisible();
+  } finally {
+    dev.close();
+    await page.request.post('/api/projects/remove', {
+      headers,
+      data: { id: 'vitrine' },
+    });
+    await rm(folder, { recursive: true, force: true });
+  }
+});

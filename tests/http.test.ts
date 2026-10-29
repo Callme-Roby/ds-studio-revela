@@ -113,19 +113,33 @@ test('plugin Figma : lecture seule des tokens depuis l’origine null, rien d’
     new Promise<number>((resolve, reject) => {
       const { port } = new URL(origin);
       http
-        .get({ host: '127.0.0.1', port, path: route, headers: { Host: `localhost:${port}`, ...headers } }, (r) => {
-          r.resume();
-          resolve(r.statusCode!);
-        })
+        .get(
+          {
+            host: '127.0.0.1',
+            port,
+            path: route,
+            headers: { Host: `localhost:${port}`, ...headers },
+          },
+          (r) => {
+            r.resume();
+            resolve(r.statusCode!);
+          },
+        )
         .on('error', reject);
     });
-  assert.equal(await viaLocalhost('/api/figma/tokens', { Origin: 'null' }), 200);
+  assert.equal(
+    await viaLocalhost('/api/figma/tokens', { Origin: 'null' }),
+    200,
+  );
   assert.equal(await viaLocalhost('/api/state', { Origin: 'null' }), 403);
   assert.equal(await viaLocalhost('/api/figma/tokens', {}), 403);
   // Préflight Private Network Access envoyé par Chromium depuis figma.com.
   const pre = await fetch(origin + '/api/figma/tokens', {
     method: 'OPTIONS',
-    headers: { Origin: 'null', 'Access-Control-Request-Private-Network': 'true' },
+    headers: {
+      Origin: 'null',
+      'Access-Control-Request-Private-Network': 'true',
+    },
   });
   assert.equal(pre.status, 204);
   assert.equal(pre.headers.get('access-control-allow-private-network'), 'true');
@@ -139,7 +153,14 @@ test('plugin Figma : lecture seule des tokens depuis l’origine null, rien d’
     ['/api/figma/tokens', { headers: { Origin: 'https://evil.example' } }],
     ['/api/project', { headers: { Origin: 'null' } }],
     ['/api/state', { headers: { Origin: 'null' } }],
-    ['/api/commit', { method: 'POST', headers: { Origin: 'null', 'Content-Type': 'application/json' }, body: '{}' }],
+    [
+      '/api/commit',
+      {
+        method: 'POST',
+        headers: { Origin: 'null', 'Content-Type': 'application/json' },
+        body: '{}',
+      },
+    ],
   ] as const) {
     const r = await fetch(origin + route, init as RequestInit);
     assert.equal(r.status, 403, route);
@@ -341,7 +362,9 @@ test('composants : propose, aperçu, valide, annule ; agent de code via diff ; p
   const { ComponentStore } = await import('../app/server/components.js');
   const directory = await mkdtemp(path.join(tmpdir(), 'ds-http-comp-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  await cp(path.join(root, 'ds'), path.join(directory, 'ds'), { recursive: true });
+  await cp(path.join(root, 'ds'), path.join(directory, 'ds'), {
+    recursive: true,
+  });
   const store = new Store(path.join(directory, 'data'), seed);
   await store.init();
   const components = new ComponentStore(
@@ -357,13 +380,21 @@ test('composants : propose, aperçu, valide, annule ; agent de code via diff ; p
     rebuild: async () => {
       rebuilt++;
     },
-    claude: new ClaudeAdapter(process.execPath, [path.join(root, 'tests/fixtures/fake-claude.mjs'), 'ok']),
+    claude: new ClaudeAdapter(process.execPath, [
+      path.join(root, 'tests/fixtures/fake-claude.mjs'),
+      'ok',
+    ]),
     editor: {
       async edit() {
         return {
           message: 'Ghost ajouté.',
           denied: 0,
-          changes: [{ path: 'components/Ghost.tsx', content: 'export const Ghost = () => null;\n' }],
+          changes: [
+            {
+              path: 'components/Ghost.tsx',
+              content: 'export const Ghost = () => null;\n',
+            },
+          ],
         };
       },
     },
@@ -375,38 +406,94 @@ test('composants : propose, aperçu, valide, annule ; agent de code via diff ; p
   const post = (route: string, body: unknown) =>
     fetch(origin + '/api/' + route, {
       method: 'POST',
-      headers: { Origin: origin, 'Content-Type': 'application/json', 'X-DS-Studio': csrf },
+      headers: {
+        Origin: origin,
+        'Content-Type': 'application/json',
+        'X-DS-Studio': csrf,
+      },
       body: JSON.stringify(body),
     });
   const list = await (await fetch(origin + '/api/components')).json();
-  assert.ok(list.files.some((f: { path: string }) => f.path === 'components/Button.tsx'));
-  assert.equal((await fetch(origin + '/api/components/file?path=../package.json')).status, 400);
-  const css = (await (await fetch(origin + '/api/components/file?path=components/Button.css')).json()).content;
+  assert.ok(
+    list.files.some(
+      (f: { path: string }) => f.path === 'components/Button.tsx',
+    ),
+  );
+  assert.equal(
+    (await fetch(origin + '/api/components/file?path=../package.json')).status,
+    400,
+  );
+  const css = (
+    await (
+      await fetch(origin + '/api/components/file?path=components/Button.css')
+    ).json()
+  ).content;
   const p = await (
     await post('components/propose', {
-      changes: [{ path: 'components/Button.css', content: css + '\n/* test */\n' }],
+      changes: [
+        { path: 'components/Button.css', content: css + '\n/* test */\n' },
+      ],
     })
   ).json();
   assert.equal(p.source, 'manual');
-  assert.equal((await post('components/propose', { changes: [{ path: '../evil.ts', content: '' }] })).status, 400);
+  assert.equal(
+    (
+      await post('components/propose', {
+        changes: [{ path: '../evil.ts', content: '' }],
+      })
+    ).status,
+    400,
+  );
   // Aperçu absent (aucun compilateur injecté) : 404, jamais un fichier du disque.
-  assert.equal((await fetch(`${origin}/preview/code/${p.id}/index.html`)).status, 404);
-  const done = await (await post('components/commit', { id: p.id, git: false })).json();
+  assert.equal(
+    (await fetch(`${origin}/preview/code/${p.id}/index.html`)).status,
+    404,
+  );
+  const done = await (
+    await post('components/commit', { id: p.id, git: false })
+  ).json();
   assert.equal(done.entry.revision, 1);
   assert.equal(done.rebuilt, true);
   assert.equal(rebuilt, 1);
-  assert.match(await readFile(path.join(directory, 'ds/src/components/Button.css'), 'utf8'), /\/\* test \*\//);
-  const agent = await (await post('components/agent', { message: 'Ajoute Ghost' })).json();
+  assert.match(
+    await readFile(
+      path.join(directory, 'ds/src/components/Button.css'),
+      'utf8',
+    ),
+    /\/\* test \*\//,
+  );
+  const agent = await (
+    await post('components/agent', { message: 'Ajoute Ghost' })
+  ).json();
   assert.equal(agent.message, 'Ghost ajouté.');
   assert.equal(agent.proposal.source, 'claude');
-  await assert.rejects(() => readFile(path.join(directory, 'ds/src/components/Ghost.tsx')));
-  assert.equal((await post('components/discard', { id: agent.proposal.id })).status, 200);
-  assert.equal((await post('components/commit', { id: agent.proposal.id })).status, 404);
-  const undo = await (await post('components/undo', { id: done.entry.id })).json();
+  await assert.rejects(() =>
+    readFile(path.join(directory, 'ds/src/components/Ghost.tsx')),
+  );
+  assert.equal(
+    (await post('components/discard', { id: agent.proposal.id })).status,
+    200,
+  );
+  assert.equal(
+    (await post('components/commit', { id: agent.proposal.id })).status,
+    404,
+  );
+  const undo = await (
+    await post('components/undo', { id: done.entry.id })
+  ).json();
   assert.equal((await post('components/commit', { id: undo.id })).status, 200);
-  assert.equal(await readFile(path.join(directory, 'ds/src/components/Button.css'), 'utf8'), css);
+  assert.equal(
+    await readFile(
+      path.join(directory, 'ds/src/components/Button.css'),
+      'utf8',
+    ),
+    css,
+  );
   // Le vrai ds/ du dépôt n'a jamais été touché.
-  assert.doesNotMatch(await readFile(path.join(root, 'ds/src/components/Button.css'), 'utf8'), /\/\* test \*\//);
+  assert.doesNotMatch(
+    await readFile(path.join(root, 'ds/src/components/Button.css'), 'utf8'),
+    /\/\* test \*\//,
+  );
 });
 
 test('export Figma : dépôt par l’atelier (CSRF), lecture par le plugin (origine null), rien d’autre', async (t) => {
@@ -416,7 +503,10 @@ test('export Figma : dépôt par l’atelier (CSRF), lecture par le plugin (orig
     await readFile(path.join(root, 'tests/fixtures/figma-spec.json'), 'utf8'),
   );
   assert.equal((await post('figma/spec', { ...spec, version: 2 })).status, 400);
-  assert.equal((await post('figma/spec', spec, { 'X-DS-Studio': '' })).status, 403);
+  assert.equal(
+    (await post('figma/spec', spec, { 'X-DS-Studio': '' })).status,
+    403,
+  );
   assert.equal((await post('figma/spec', spec)).status, 200);
   const status = await (await fetch(origin + '/api/figma/spec/status')).json();
   assert.deepEqual(
@@ -437,7 +527,11 @@ test('export Figma : dépôt par l’atelier (CSRF), lecture par le plugin (orig
   });
   assert.equal(forged.status, 403);
   assert.equal(
-    (await fetch(origin + '/api/figma/spec/status', { headers: { Origin: 'null' } })).status,
+    (
+      await fetch(origin + '/api/figma/spec/status', {
+        headers: { Origin: 'null' },
+      })
+    ).status,
     403,
   );
 });
@@ -452,18 +546,39 @@ test('projets : ajout protégé (CSRF), bascule, retrait ; Revela toujours prés
     source: { type: 'local', url: '' },
     figma: { plugin: true, fileUrl: '' },
   };
-  assert.equal((await post('projects/add', body, { 'X-DS-Studio': '' })).status, 403);
-  assert.equal((await post('projects/add', { ...body, root: 'relatif' })).status, 400);
+  assert.equal(
+    (await post('projects/add', body, { 'X-DS-Studio': '' })).status,
+    403,
+  );
+  assert.equal(
+    (await post('projects/add', { ...body, root: 'relatif' })).status,
+    400,
+  );
   const added = await (await post('projects/add', body)).json();
   assert.equal(added.active, 'site-vitrine');
-  assert.deepEqual(added.projects.map((p: { id: string }) => p.id), ['revela', 'site-vitrine']);
+  assert.deepEqual(
+    added.projects.map((p: { id: string }) => p.id),
+    ['revela', 'site-vitrine'],
+  );
   assert.equal((await post('projects/active', { id: 'revela' })).status, 200);
-  assert.equal((await (await fetch(origin + '/api/projects')).json()).active, 'revela');
+  assert.equal(
+    (await (await fetch(origin + '/api/projects')).json()).active,
+    'revela',
+  );
   assert.equal((await post('projects/remove', { id: 'revela' })).status, 400);
-  const removed = await (await post('projects/remove', { id: 'site-vitrine' })).json();
-  assert.deepEqual(removed.projects.map((p: { id: string }) => p.id), ['revela']);
+  const removed = await (
+    await post('projects/remove', { id: 'site-vitrine' })
+  ).json();
+  assert.deepEqual(
+    removed.projects.map((p: { id: string }) => p.id),
+    ['revela'],
+  );
   // Le plugin Figma (origine null) n'a pas accès aux projets.
-  assert.equal((await fetch(origin + '/api/projects', { headers: { Origin: 'null' } })).status, 403);
+  assert.equal(
+    (await fetch(origin + '/api/projects', { headers: { Origin: 'null' } }))
+      .status,
+    403,
+  );
 });
 
 test('variables d’un projet externe : sources, proposition, validation sur place, annulation', async (t) => {
@@ -481,35 +596,66 @@ test('variables d’un projet externe : sources, proposition, validation sur pla
     figma: { plugin: false, fileUrl: '' },
   });
   assert.equal(
-    (await post('projects/site/sources', { tokens: [{ file: '../x.css', format: 'css' }] })).status,
+    (
+      await post('projects/site/sources', {
+        tokens: [{ file: '../x.css', format: 'css' }],
+      })
+    ).status,
     400,
   );
   assert.equal(
-    (await post('projects/site/sources', { tokens: [{ file: 'styles/tokens.css', format: 'css' }] })).status,
+    (
+      await post('projects/site/sources', {
+        tokens: [{ file: 'styles/tokens.css', format: 'css' }],
+      })
+    ).status,
     200,
   );
   const read = await (await fetch(origin + '/api/projects/site/tokens')).json();
-  assert.deepEqual(read.tokens.map((x: { id: string }) => x.id), ['styles/tokens.css#brand']);
+  assert.deepEqual(
+    read.tokens.map((x: { id: string }) => x.id),
+    ['styles/tokens.css#brand'],
+  );
   assert.equal(
-    (await post('projects/site/tokens/propose', { changes: [{ id: 'styles/tokens.css#brand', value: 'red;}' }] })).status,
+    (
+      await post('projects/site/tokens/propose', {
+        changes: [{ id: 'styles/tokens.css#brand', value: 'red;}' }],
+      })
+    ).status,
     400,
   );
   const p = await (
-    await post('projects/site/tokens/propose', { changes: [{ id: 'styles/tokens.css#brand', value: '#112233' }] })
+    await post('projects/site/tokens/propose', {
+      changes: [{ id: 'styles/tokens.css#brand', value: '#112233' }],
+    })
   ).json();
-  assert.equal(await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'), css);
-  const entry = await (await post('projects/site/tokens/commit', { id: p.id })).json();
+  assert.equal(
+    await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'),
+    css,
+  );
+  const entry = await (
+    await post('projects/site/tokens/commit', { id: p.id })
+  ).json();
   assert.equal(entry.revision, 1);
   assert.equal(
     await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'),
     css.replace('#3355FF', '#112233'),
   );
-  const undo = await (await post('projects/site/tokens/undo', { id: entry.id })).json();
+  const undo = await (
+    await post('projects/site/tokens/undo', { id: entry.id })
+  ).json();
   await post('projects/site/tokens/commit', { id: undo.id });
-  assert.equal(await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'), css);
+  assert.equal(
+    await readFile(path.join(folder, 'styles', 'tokens.css'), 'utf8'),
+    css,
+  );
   // Le plugin (origine null) n'y a pas accès.
   assert.equal(
-    (await fetch(origin + '/api/projects/site/tokens', { headers: { Origin: 'null' } })).status,
+    (
+      await fetch(origin + '/api/projects/site/tokens', {
+        headers: { Origin: 'null' },
+      })
+    ).status,
     403,
   );
 });
@@ -520,7 +666,10 @@ test('composants et Git d’un projet externe : dossiers vérifiés, chemins fer
   t.after(() => rm(folder, { recursive: true, force: true }));
   const { writeFile, mkdir } = await import('node:fs/promises');
   await mkdir(path.join(folder, 'ui'));
-  await writeFile(path.join(folder, 'ui', 'Card.css'), '.card { padding: 8px; }\n');
+  await writeFile(
+    path.join(folder, 'ui', 'Card.css'),
+    '.card { padding: 8px; }\n',
+  );
   await writeFile(path.join(folder, 'secret.env'), 'TOKEN=x\n');
   await post('projects/add', {
     name: 'App',
@@ -528,39 +677,88 @@ test('composants et Git d’un projet externe : dossiers vérifiés, chemins fer
     source: { type: 'local', url: '' },
     figma: { plugin: false, fileUrl: '' },
   });
-  assert.equal((await fetch(origin + '/api/projects/app/components')).status, 409);
   assert.equal(
-    (await post('projects/app/component-dirs', { components: [{ dir: '../x', extensions: ['css'] }] })).status,
+    (await fetch(origin + '/api/projects/app/components')).status,
+    409,
+  );
+  assert.equal(
+    (
+      await post('projects/app/component-dirs', {
+        components: [{ dir: '../x', extensions: ['css'] }],
+      })
+    ).status,
     400,
   );
   assert.equal(
-    (await post('projects/app/component-dirs', { components: [{ dir: 'absent', extensions: ['css'] }] })).status,
+    (
+      await post('projects/app/component-dirs', {
+        components: [{ dir: 'absent', extensions: ['css'] }],
+      })
+    ).status,
     400,
   );
   assert.equal(
-    (await post('projects/app/component-dirs', { components: [{ dir: 'ui', extensions: ['css'] }] })).status,
+    (
+      await post('projects/app/component-dirs', {
+        components: [{ dir: 'ui', extensions: ['css'] }],
+      })
+    ).status,
     200,
   );
-  const list = await (await fetch(origin + '/api/projects/app/components')).json();
-  assert.deepEqual(list.files.map((f: { path: string }) => f.path), ['ui/Card.css']);
-  assert.equal((await fetch(origin + '/api/projects/app/components/file?path=secret.env')).status, 400);
-  assert.equal((await fetch(origin + '/api/projects/app/components/file?path=../x.css')).status, 400);
+  const list = await (
+    await fetch(origin + '/api/projects/app/components')
+  ).json();
+  assert.deepEqual(
+    list.files.map((f: { path: string }) => f.path),
+    ['ui/Card.css'],
+  );
   assert.equal(
-    (await post('projects/app/components/propose', { changes: [{ path: 'secret.env', content: 'x' }] })).status,
+    (await fetch(origin + '/api/projects/app/components/file?path=secret.env'))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await fetch(origin + '/api/projects/app/components/file?path=../x.css'))
+      .status,
+    400,
+  );
+  assert.equal(
+    (
+      await post('projects/app/components/propose', {
+        changes: [{ path: 'secret.env', content: 'x' }],
+      })
+    ).status,
     400,
   );
   const p = await (
-    await post('projects/app/components/propose', { changes: [{ path: 'ui/Card.css', content: '.card { padding: 16px; }\n' }] })
+    await post('projects/app/components/propose', {
+      changes: [{ path: 'ui/Card.css', content: '.card { padding: 16px; }\n' }],
+    })
   ).json();
-  const done = await (await post('projects/app/components/commit', { id: p.id, git: false })).json();
+  const done = await (
+    await post('projects/app/components/commit', { id: p.id, git: false })
+  ).json();
   assert.equal(done.entry.revision, 1);
-  assert.equal(await readFile(path.join(folder, 'ui', 'Card.css'), 'utf8'), '.card { padding: 16px; }\n');
-  assert.deepEqual(await (await fetch(origin + '/api/projects/app/git')).json(), { repo: false });
   assert.equal(
-    (await fetch(origin + '/api/projects/app/components', { headers: { Origin: 'null' } })).status,
+    await readFile(path.join(folder, 'ui', 'Card.css'), 'utf8'),
+    '.card { padding: 16px; }\n',
+  );
+  assert.deepEqual(
+    await (await fetch(origin + '/api/projects/app/git')).json(),
+    { repo: false },
+  );
+  assert.equal(
+    (
+      await fetch(origin + '/api/projects/app/components', {
+        headers: { Origin: 'null' },
+      })
+    ).status,
     403,
   );
-  assert.equal((await post('projects/app/git/push', {}, { Origin: 'null' })).status, 403);
+  assert.equal(
+    (await post('projects/app/git/push', {}, { Origin: 'null' })).status,
+    403,
+  );
 });
 
 test('plugin Figma téléchargeable : archive avec manifest, code et interface', async (t) => {
@@ -568,11 +766,107 @@ test('plugin Figma téléchargeable : archive avec manifest, code et interface',
   const r = await fetch(origin + '/api/figma/plugin.zip');
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-type'), 'application/zip');
-  assert.match(r.headers.get('content-disposition') ?? '', /ds-studio-figma-plugin\.zip/);
+  assert.match(
+    r.headers.get('content-disposition') ?? '',
+    /ds-studio-figma-plugin\.zip/,
+  );
   const archive = Buffer.from(await r.arrayBuffer());
   const names = archive.toString('latin1');
   for (const name of ['manifest.json', 'code.js', 'ui.html', 'LISEZMOI.txt'])
     assert.ok(names.includes(`ds-studio-figma-plugin/${name}`), name);
-  const manifest = await readFile(path.join(root, 'figma-plugin', 'manifest.json'));
+  const manifest = await readFile(
+    path.join(root, 'figma-plugin', 'manifest.json'),
+  );
   assert.ok(archive.includes(manifest));
+});
+
+test('plugin multi-projets et aperçu : projets cochés seulement, adresses locales seulement', async (t) => {
+  const { origin, post } = await fixture(t);
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-plug-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile(
+    path.join(folder, 'tokens.css'),
+    ':root {\n  --brand: #3355ff;\n  --gap: 1rem;\n}\n',
+  );
+  const add = (name: string, plugin: boolean) =>
+    post('projects/add', {
+      name,
+      root: folder,
+      source: { type: 'local', url: '' },
+      figma: { plugin, fileUrl: '' },
+    });
+  await add('Site', false);
+  await post('projects/site/sources', {
+    tokens: [{ file: 'tokens.css', format: 'css' }],
+  });
+  const plugin = (route: string) =>
+    fetch(origin + route, { headers: { Origin: 'null' } });
+  let list = await (await plugin('/api/figma/projects')).json();
+  assert.deepEqual(
+    list.projects.map((p: { id: string }) => p.id),
+    ['revela'],
+  );
+  assert.equal((await plugin('/api/figma/tokens?project=site')).status, 403);
+  await post('projects/figma', {
+    id: 'site',
+    figma: { plugin: true, fileUrl: '' },
+  });
+  list = await (await plugin('/api/figma/projects')).json();
+  assert.deepEqual(
+    list.projects.map(
+      (p: { id: string; collection: string; components: boolean }) => [
+        p.id,
+        p.collection,
+        p.components,
+      ],
+    ),
+    [
+      ['revela', 'Revela · DS-Studio', true],
+      ['site', 'Site · DS-Studio', false],
+    ],
+  );
+  const r = await plugin('/api/figma/tokens?project=site');
+  assert.equal(r.headers.get('access-control-allow-origin'), 'null');
+  assert.deepEqual(await r.json(), {
+    revision: 0,
+    collection: 'Site · DS-Studio',
+    tokens: {
+      brand: { $type: 'color', $value: '#3355FF' },
+      gap: { $type: 'dimension', $value: 16 },
+    },
+  });
+  assert.equal((await plugin('/api/figma/tokens?project=../x')).status, 400);
+  // Aperçu : adresses locales uniquement ; vérification sans serveur lancé.
+  assert.equal(
+    (
+      await post('projects/site/preview', {
+        url: 'https://evil.example',
+        catalog: '',
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await post('projects/site/preview', {
+        url: 'http://localhost:9',
+        catalog: '/ds',
+      })
+    ).status,
+    200,
+  );
+  const check = await (
+    await fetch(origin + '/api/projects/site/preview/check')
+  ).json();
+  assert.equal(check.reachable, false);
+  assert.deepEqual(
+    await (await fetch(origin + '/api/projects/site/stories')).json(),
+    { stories: [] },
+  );
+  // Le plugin n'a pas accès aux autres routes du projet.
+  assert.equal((await plugin('/api/projects/site/preview/check')).status, 403);
+  const csp =
+    (await fetch(origin + '/')).headers.get('content-security-policy') ?? '';
+  assert.match(csp, /frame-src 'self' http:\/\/localhost:\*/);
 });
