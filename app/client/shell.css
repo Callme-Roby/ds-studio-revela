@@ -743,3 +743,105 @@ dialog.code-dialog {
   height: 900px;
   overflow: hidden;
 }
+
+/* Sélecteur de projet et formulaire d'ajout. */
+.project-switcher {
+  position: relative;
+}
+.project-current {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+}
+.project-current:hover {
+  background: var(--ui-surface-hover);
+}
+.project-current .brand-symbol {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 15px;
+  text-transform: lowercase;
+}
+.project-current strong,
+.project-current small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-current small {
+  color: var(--ui-text-muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.project-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--ui-border-control);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface-raised);
+  box-shadow: var(--ui-shadow);
+}
+.project-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+  font-weight: 500;
+}
+.project-menu button:hover {
+  background: var(--ui-surface-hover);
+}
+.project-menu button[aria-checked='true'] {
+  background: var(--ui-surface-active);
+}
+.project-menu small {
+  color: var(--ui-text-subtle);
+  font-weight: 400;
+}
+.project-menu .project-add {
+  border-top: 1px solid var(--ui-border);
+  border-radius: 0 0 6px 6px;
+  color: var(--ui-text-muted);
+}
+dialog.add-project {
+  width: min(560px, calc(100vw - 32px));
+}
+dialog.add-project form,
+.stack {
+  display: grid;
+  gap: 12px;
+}
+dialog.add-project fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+dialog.add-project legend {
+  margin-bottom: 6px;
+}
+.steps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+.steps li span {
+  display: block;
+}

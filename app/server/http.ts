@@ -23,6 +23,11 @@ import { previewBuilder } from './preview-build.js';
 import { gitCommitter } from './git.js';
 import { figmaSpecSchema, type FigmaSpec } from '../shared/figma-spec.js';
 import { atomicWrite, readPrivate } from './files.js';
+import { ProjectRegistry } from './registry.js';
+import {
+  newProjectSchema,
+  projectSchema as dsProjectSchema,
+} from '../shared/projects.js';
 import { ClaudeCodeEditor } from '../../connectors/agents/claude-code.js';
 import type { RecordInfo } from '../../scripts/runtime.mjs';
 
@@ -76,6 +81,7 @@ export async function createStudioServer(options: {
   let figmaSpec: FigmaSpec | null = await readPrivate(specFile, 8_000_000)
     .then((raw) => figmaSpecSchema.parse(JSON.parse(raw)))
     .catch(() => null);
+  const projects = new ProjectRegistry(store.directory, root);
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
   let closing = false;
@@ -188,6 +194,7 @@ export async function createStudioServer(options: {
             const { revision, tokens } = store.snapshot();
             return send(200, { revision, tokens });
           }
+          if (url.pathname === '/api/projects') return send(200, await projects.list());
           if (url.pathname === '/api/components')
             return send(200, {
               files: await components.list(),
@@ -306,6 +313,28 @@ export async function createStudioServer(options: {
           const state = await store.commit(b.id);
           // La révision est acquise ; le code suit, sans pouvoir l'annuler.
           return send(200, { state, code: await code.write() });
+        }
+        if (url.pathname === '/api/projects/add') {
+          await projects.add(newProjectSchema.parse(body));
+          return send(200, await projects.list());
+        }
+        if (url.pathname === '/api/projects/active') {
+          const b = z.object({ id: z.string().max(40) }).strict().parse(body);
+          await projects.setActive(b.id);
+          return send(200, await projects.list());
+        }
+        if (url.pathname === '/api/projects/remove') {
+          const b = z.object({ id: z.string().max(40) }).strict().parse(body);
+          await projects.remove(b.id);
+          return send(200, await projects.list());
+        }
+        if (url.pathname === '/api/projects/figma') {
+          const b = z
+            .object({ id: z.string().max(40), figma: dsProjectSchema.shape.figma })
+            .strict()
+            .parse(body);
+          await projects.updateFigma(b.id, b.figma);
+          return send(200, await projects.list());
         }
         if (url.pathname === '/api/components/propose') {
           const b = codeProposeSchema.parse(body);

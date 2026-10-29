@@ -4,7 +4,7 @@ import path from 'node:path';
 // Commit Git facultatif après une validation de code : seulement les fichiers
 // validés de ds/src (git commit --only), jamais d'autres fichiers indexés, jamais
 // de push. Sans dépôt Git ou sans identité, la validation reste faite.
-function git(cwd: string, args: string[]) {
+export function git(cwd: string, args: string[]) {
   return new Promise<string>((resolve, reject) =>
     execFile(
       'git',

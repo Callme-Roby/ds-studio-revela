@@ -26,6 +26,7 @@ DS-Studio (http://127.0.0.1:4310)
 | **Historique**          | Révisions de variables (r) et de code (c), chacune annulable                           |
 | **Projet**              | Brief PFE privé                                                                         |
 | **Intégrations**        | Cible code, import/export JSON, plugin Figma, statut des assistants                    |
+| **Projets** (haut de la barre) | Revela (intégré) et vos autres projets : dossier local ou dépôt GitHub, fichier Figma, case « plugin Figma » |
 | **Assistant IA** (flottant, repliable) | Variables : propositions de tokens. Composants : Claude édite une copie de `ds/` |
 
 **Tout fonctionne sans compte** : mode manuel, aperçu, contrôles, historique et
@@ -88,7 +89,18 @@ de code écrit dans `ds/src`, puis recompile l’interface (en `npm start`) ; en
 Un problème de contrôle introduit par une proposition exige une **case d’accord
 explicite** ; le serveur refuse la validation sans elle.
 
-## Brancher un autre projet
+## Ajouter un autre projet
+
+En haut de la barre latérale : **Revela ▾ → Ajouter un projet…** Indiquez le nom,
+le dossier du projet sur ce poste (chemin absolu), éventuellement l’URL GitHub
+et le fichier Figma, et cochez la case si le projet est synchronisé par le
+plugin. DS-Studio enregistre le projet (`.ds-studio/projects.json`, privé) sans
+rien lire ni exécuter de son contenu, et affiche son état Git en lecture seule.
+Les variables, composants, aperçu et l’analyse par l’IA d’un projet externe
+arrivent par étapes (feuille de route, phase D). Retirer un projet ne supprime
+aucun fichier.
+
+## Écrire les tokens de Revela dans un autre dossier
 
 Par défaut, DS-Studio écrit `ds/tokens.css`. Pour écrire dans un autre projet,
 créez `.ds-studio/code-target.json` (privé, chemin absolu, fichier nommé

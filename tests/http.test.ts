@@ -441,3 +441,27 @@ test('export Figma : dépôt par l’atelier (CSRF), lecture par le plugin (orig
     403,
   );
 });
+
+test('projets : ajout protégé (CSRF), bascule, retrait ; Revela toujours présent', async (t) => {
+  const { origin, post } = await fixture(t);
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-proj-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const body = {
+    name: 'Site vitrine',
+    root: folder,
+    source: { type: 'local', url: '' },
+    figma: { plugin: true, fileUrl: '' },
+  };
+  assert.equal((await post('projects/add', body, { 'X-DS-Studio': '' })).status, 403);
+  assert.equal((await post('projects/add', { ...body, root: 'relatif' })).status, 400);
+  const added = await (await post('projects/add', body)).json();
+  assert.equal(added.active, 'site-vitrine');
+  assert.deepEqual(added.projects.map((p: { id: string }) => p.id), ['revela', 'site-vitrine']);
+  assert.equal((await post('projects/active', { id: 'revela' })).status, 200);
+  assert.equal((await (await fetch(origin + '/api/projects')).json()).active, 'revela');
+  assert.equal((await post('projects/remove', { id: 'revela' })).status, 400);
+  const removed = await (await post('projects/remove', { id: 'site-vitrine' })).json();
+  assert.deepEqual(removed.projects.map((p: { id: string }) => p.id), ['revela']);
+  // Le plugin Figma (origine null) n'a pas accès aux projets.
+  assert.equal((await fetch(origin + '/api/projects', { headers: { Origin: 'null' } })).status, 403);
+});

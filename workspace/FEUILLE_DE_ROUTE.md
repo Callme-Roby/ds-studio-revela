@@ -66,7 +66,7 @@ Choix de l’étudiant :
 
 | # | Étape | Contenu |
 | - | ----- | ------- |
-| D1 | Projets | Liste de projets (`.ds-studio/projects.json`), un dossier d’état par projet, sélecteur dans la barre latérale ; Revela devient « projet intégré » |
+| D1 | Projets | Liste de projets (`.ds-studio/projects.json`), un dossier d’état par projet, sélecteur dans la barre latérale ; Revela devient « projet intégré » — TESTED (unitaires, API, navigateur) |
 | D2 | Tokens génériques | Schéma de tokens dynamique par projet, adaptateurs lecture/écriture sur place (CSS, SCSS, JSON), diff et historique inchangés ; contrôles génériques (contraste des paires déclarées) |
 | D3 | Code et Git | Composants = fichiers des dossiers déclarés ; clone GitHub, commits locaux, **pousser au clic** |
 | D4 | Aperçu | Iframe du serveur de dev, largeurs réelles, rechargement après validation |

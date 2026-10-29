@@ -529,3 +529,45 @@ test('export Figma : capture des composants et écrans, couleurs rattachées aux
     ).status(),
   ).toBe(200);
 });
+
+test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', async ({ page }) => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-e2e-projet-'));
+  try {
+    await page.goto('/#/apercu');
+    await page.getByRole('button', { name: /Revela/ }).first().click();
+    await page.getByRole('menuitem', { name: /Ajouter un projet/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Ajouter un projet' });
+    await dialog.getByLabel('Nom du projet').fill('Site vitrine');
+    await dialog.getByLabel(/Dossier du projet/).fill('relatif');
+    await dialog.getByRole('button', { name: 'Ajouter le projet' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('absolu');
+    await dialog.getByLabel(/Dossier du projet/).fill(folder);
+    await dialog.getByLabel('Fichier Figma').fill('https://www.figma.com/design/abc/Site');
+    await dialog.getByRole('checkbox').check();
+    await dialog.getByRole('button', { name: 'Ajouter le projet' }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Site vitrine', level: 1 })).toBeVisible();
+    await expect(page.getByText('Dossier présent sur ce poste.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Ouvrir dans Figma' })).toHaveAttribute(
+      'href',
+      'https://www.figma.com/design/abc/Site',
+    );
+    await expect(page.getByRole('button', { name: /Assistant IA/ })).toHaveCount(0);
+    await page.getByRole('button', { name: /Site vitrine/ }).first().click();
+    await page.getByRole('menuitemradio', { name: /Revela/ }).click();
+    await expect(page.getByRole('heading', { name: 'Aperçu de Revela', level: 1 })).toBeVisible();
+    // Nettoyage : projet retiré, Revela reste.
+    await page.request.post('/api/projects/remove', {
+      headers: {
+        'X-DS-Studio': (await (await page.request.get('/api/bootstrap')).json()).csrf,
+        Origin: new URL(page.url()).origin,
+      },
+      data: { id: 'site-vitrine' },
+    });
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+});

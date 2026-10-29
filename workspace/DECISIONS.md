@@ -378,3 +378,38 @@ navigateur dont l’édition de `Button.css` avec aperçu compilé (rayon 20 px 
 - Après une validation de code en `npm start`, l’interface se recompile puis se
   recharge (environ 1 s).
 - Figma reçoit toujours les variables seulement (phase C).
+
+## 2026-10-29 — Phase C : composants et écrans vers Figma (essai réel à faire)
+
+**Choix.** DS-Studio capture lui-même ses composants et écrans (iframe cachée,
+styles calculés) et produit un export lu par le plugin ; le plugin reconstruit
+des nœuds Figma liés aux variables. Couleurs rattachées aux tokens par un rendu
+témoin (une couleur unique par token), dimensions par famille (space, radius,
+font). Reconstruction sur place pour garder les identifiants des composants.
+
+**Preuves.** Plugin exécuté tel quel contre une imitation de l’API Figma, dont
+un export réel (11 composants, 19 variantes, 3 écrans, 289 liaisons) ; capture
+testée dans le navigateur (`color.onBrand` distingué de `color.surface`) ;
+routes de l’export (dépôt protégé, lecture plugin seule).
+
+**Limites.** Pas encore essayé dans Figma réel ; police Inter à la place de la
+police système ; champs et curseurs simplifiés ; sens unique DS-Studio → Figma.
+
+## 2026-10-29 — Phase D1 : plusieurs projets
+
+**Choix.** Registre `.ds-studio/projects.json` (privé) ; Revela reste le projet
+intégré, non supprimable, avec l’état existant (aucune migration). Un projet
+externe = nom, dossier absolu vérifié, source (local ou URL GitHub), fichier
+Figma, case « plugin Figma » ; un dossier d’état par projet. Déclarer un projet
+ne lit ni n’exécute rien de son contenu ; l’état Git est lu (branche, origine,
+fichiers modifiés), jamais modifié ; retirer un projet ne supprime aucun fichier.
+Projet externe actif : vue d’ensemble seulement, le reste arrive en D2 à D6.
+
+**Incidents.** Dépôt Git sans commit non reconnu (`rev-parse HEAD` échoue sur
+une branche vide) : branche lue par `symbolic-ref`. Plugin Figma : cases à
+cocher séparées de leur texte à 480 px, corrigé avec la nouvelle DA.
+
+**Preuves.** 6 tests du registre, test HTTP (CSRF, bascule, retrait, plugin
+refusé), test navigateur (ajout avec erreur de chemin puis succès, vue
+d’ensemble, retour à Revela) ; 78 tests unitaires et API, 16 navigateur.
+Un échec intermittent du test du lanceur, non reproduit sur 3 relances.

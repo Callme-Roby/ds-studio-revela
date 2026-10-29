@@ -17,6 +17,8 @@ Lire [START_HERE.md](START_HERE.md). Le contexte appartient à l’étudiant.
 - `app/server/components.ts` : propositions de code limitées à `ds/src`, diff,
   validation relue, journal `components-history.json`, annulation ;
   `preview-build.ts` (aperçu compilé en mémoire), `git.ts` (commit local facultatif).
+- `app/server/registry.ts` + `app/shared/projects.ts` : projets (Revela intégré,
+  projets externes déclarés), un dossier d’état par projet, état Git en lecture seule.
 - `connectors/agents/claude-code.ts` : agent de code sur une copie temporaire de
   `ds/`, outils fichiers seulement ; ses différences deviennent une proposition.
 - `connectors/agents/` : Codex et Claude Code (profil sans outils) qualifiés, Gemini indisponible.

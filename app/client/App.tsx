@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import ProjectBrief from './ProjectBrief.js';
 import Assistant from './Assistant.js';
+import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
+import ExternalProjectView from './views/ExternalProjectView.js';
 import TokenDiffDialog from './TokenDiffDialog.js';
 import CodeDiffDialog from './CodeDiffDialog.js';
 import PreviewView from './views/PreviewView.js';
@@ -100,6 +102,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [variable, setVariable] = useState<TokenKey>();
+  const [projects, setProjects] = useState<Projects>();
   const [spec, setSpec] = useState<SpecStatus | null>();
   const [specBusy, setSpecBusy] = useState(false);
   // Export Figma (composants et écrans) régénéré en arrière-plan quand il ne
@@ -130,6 +133,9 @@ export default function App() {
     void refreshCode();
     void refreshCodeHistory();
     void refreshSpec();
+    request<Projects>('projects')
+      .then(setProjects)
+      .catch(() => setProjects(undefined));
     request<Bootstrap['agents']>('agents')
       .then(setAgents)
       .catch(() => setAgents([]));
@@ -278,6 +284,12 @@ export default function App() {
       </main>
     );
   const current = views.find((v) => v.id === route.view)!;
+  // Projet externe actif : vue d'ensemble seulement, jusqu'aux étapes D2 à D6.
+  const activeProject = projects?.projects.find(
+    (p) => p.id === projects.active,
+  );
+  const external =
+    activeProject && !activeProject.builtin ? activeProject : undefined;
   const codeRevision = codeHistory[0]?.revision ?? 0;
   return (
     <div className="shell">
@@ -293,146 +305,192 @@ export default function App() {
         Aller au contenu
       </a>
       <aside className="sidebar">
-        <div className="wordmark">
-          <span className="brand-symbol">ds.</span>
-          <div>
-            <strong>DS-Studio</strong>
-            <span>Revela</span>
+        {projects ? (
+          <ProjectSwitcher data={projects} onChange={setProjects} />
+        ) : (
+          <div className="wordmark">
+            <span className="brand-symbol">ds.</span>
+            <div>
+              <strong>DS-Studio</strong>
+              <span>Revela</span>
+            </div>
           </div>
-        </div>
-        <nav aria-label="Parties de l’atelier">
-          <ul>
-            {views.map((v) => (
-              <li key={v.id}>
-                <a
-                  href={`#/${v.id}`}
-                  aria-current={route.view === v.id ? 'page' : undefined}
-                >
+        )}
+        {external ? (
+          <nav aria-label="Parties du projet">
+            <ul>
+              <li>
+                <a href="#/apercu" aria-current="page">
                   <span className="nav-icon" aria-hidden="true">
-                    {v.icon}
+                    ◎
                   </span>
-                  {v.label}
-                  {v.id === 'historique' && (
-                    <span className="nav-count">
-                      {state.revision + codeRevision}
-                    </span>
-                  )}
+                  Vue d’ensemble
                 </a>
               </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="sidebar-status">
-          <span className="status-line">
-            <span>Variables</span> <strong>r{state.revision}</strong>
-          </span>
-          <span className="status-line">
-            <span>Code</span> <strong>c{codeRevision}</strong>
-          </span>
-          <span
-            className={`code-badge ${code?.configured ? code.state : 'off'}`}
-            title={code?.configured ? `${code.file}\n${code.detail}` : ''}
-          >
-            {!code?.configured
-              ? 'tokens.css non configuré'
-              : code.state === 'synced'
-                ? `tokens.css à jour · r${code.revision}`
-                : code.state === 'outdated' || code.state === 'absent'
-                  ? 'tokens.css à mettre à jour'
-                  : 'tokens.css bloqué'}
-          </span>
-          {code?.configured &&
-            (code.state === 'outdated' || code.state === 'absent') && (
-              <button onClick={() => void resync()}>Écrire le code</button>
-            )}
-          <span className="muted small">
-            {boot?.figma.label ?? 'Figma non connecté'}
-          </span>
-        </div>
+            </ul>
+          </nav>
+        ) : (
+          <nav aria-label="Parties de l’atelier">
+            <ul>
+              {views.map((v) => (
+                <li key={v.id}>
+                  <a
+                    href={`#/${v.id}`}
+                    aria-current={route.view === v.id ? 'page' : undefined}
+                  >
+                    <span className="nav-icon" aria-hidden="true">
+                      {v.icon}
+                    </span>
+                    {v.label}
+                    {v.id === 'historique' && (
+                      <span className="nav-count">
+                        {state.revision + codeRevision}
+                      </span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        {!external && (
+          <div className="sidebar-status">
+            <span className="status-line">
+              <span>Variables</span> <strong>r{state.revision}</strong>
+            </span>
+            <span className="status-line">
+              <span>Code</span> <strong>c{codeRevision}</strong>
+            </span>
+            <span
+              className={`code-badge ${code?.configured ? code.state : 'off'}`}
+              title={code?.configured ? `${code.file}\n${code.detail}` : ''}
+            >
+              {!code?.configured
+                ? 'tokens.css non configuré'
+                : code.state === 'synced'
+                  ? `tokens.css à jour · r${code.revision}`
+                  : code.state === 'outdated' || code.state === 'absent'
+                    ? 'tokens.css à mettre à jour'
+                    : 'tokens.css bloqué'}
+            </span>
+            {code?.configured &&
+              (code.state === 'outdated' || code.state === 'absent') && (
+                <button onClick={() => void resync()}>Écrire le code</button>
+              )}
+            <span className="muted small">
+              {boot?.figma.label ?? 'Figma non connecté'}
+            </span>
+          </div>
+        )}
       </aside>
-      <main className="main">
-        <header className="main-head">
-          <div>
-            <h1 id="main-title" tabIndex={-1}>
-              {current.title}
-            </h1>
-            <p className="muted">{current.hint}</p>
+      {external ? (
+        <main className="main">
+          <header className="main-head">
+            <div>
+              <h1 id="main-title" tabIndex={-1}>
+                {external.name}
+              </h1>
+              <p className="muted">
+                Projet externe ·{' '}
+                {external.source.type === 'github'
+                  ? 'dépôt GitHub'
+                  : 'dossier local'}
+              </p>
+            </div>
+          </header>
+          <ExternalProjectView
+            key={external.id}
+            project={external}
+            onChange={setProjects}
+          />
+        </main>
+      ) : (
+        <main className="main">
+          <header className="main-head">
+            <div>
+              <h1 id="main-title" tabIndex={-1}>
+                {current.title}
+              </h1>
+              <p className="muted">{current.hint}</p>
+            </div>
+          </header>
+          <div className="feedback" aria-live="polite">
+            {(error || stateError) && !proposal && !codeProposal && (
+              <p className="error" role="alert">
+                {error || stateError}
+              </p>
+            )}
+            {notice && (
+              <p className="notice" role="status">
+                {notice}
+              </p>
+            )}
+            {busy && !codeProposal && <p className="notice">{busy}</p>}
           </div>
-        </header>
-        <div className="feedback" aria-live="polite">
-          {(error || stateError) && !proposal && !codeProposal && (
-            <p className="error" role="alert">
-              {error || stateError}
-            </p>
+          {route.view === 'apercu' && <PreviewView />}
+          {route.view === 'variables' && (
+            <VariablesView
+              key={variable}
+              state={state}
+              disabled={!boot}
+              onPropose={(key, value) => void proposeToken(key, value)}
+              onOpenComponent={(id) => go('composants', id)}
+              initial={variable}
+            />
           )}
-          {notice && (
-            <p className="notice" role="status">
-              {notice}
-            </p>
+          {route.view === 'composants' && (
+            <ComponentsView
+              state={state}
+              codeRevision={codeRevision}
+              selected={route.item ?? 'button'}
+              onSelect={(id) => go('composants', id)}
+              onPropose={proposeCode}
+              onOpenVariable={(v) => {
+                const key = tokenKeys.find((k) => k.replace('.', '-') === v);
+                if (key) {
+                  setVariable(key);
+                  go('variables');
+                }
+              }}
+              busy={!!busy}
+            />
           )}
-          {busy && !codeProposal && <p className="notice">{busy}</p>}
-        </div>
-        {route.view === 'apercu' && <PreviewView />}
-        {route.view === 'variables' && (
-          <VariablesView
-            key={variable}
-            state={state}
-            disabled={!boot}
-            onPropose={(key, value) => void proposeToken(key, value)}
-            onOpenComponent={(id) => go('composants', id)}
-            initial={variable}
-          />
-        )}
-        {route.view === 'composants' && (
-          <ComponentsView
-            state={state}
-            codeRevision={codeRevision}
-            selected={route.item ?? 'button'}
-            onSelect={(id) => go('composants', id)}
-            onPropose={proposeCode}
-            onOpenVariable={(v) => {
-              const key = tokenKeys.find((k) => k.replace('.', '-') === v);
-              if (key) {
-                setVariable(key);
-                go('variables');
-              }
-            }}
-            busy={!!busy}
-          />
-        )}
-        {route.view === 'historique' && (
-          <HistoryView
-            state={state}
-            code={codeHistory}
-            onUndoToken={(id) => void undoToken(id)}
-            onUndoCode={(id) => void undoCode(id)}
-          />
-        )}
-        {route.view === 'projet' && (
-          <div className="narrow">
-            <ProjectBrief />
-          </div>
-        )}
-        {route.view === 'integrations' && (
-          <IntegrationsView
-            code={code}
-            agents={agents}
-            revision={state.revision}
-            onResync={() => void resync()}
-            onExport={() => void perform(exportTokens)}
-            onImport={(f) => void importTokens(f)}
-            spec={spec}
-            specBusy={specBusy}
-            onPrepareSpec={() => void refreshSpec(true)}
-          />
-        )}
-      </main>
-      <Assistant
-        agents={agents}
-        revision={state.revision}
-        onTokenProposal={setProposal}
-        onCodeProposal={(p) => setCodeProposal({ p })}
-      />
+          {route.view === 'historique' && (
+            <HistoryView
+              state={state}
+              code={codeHistory}
+              onUndoToken={(id) => void undoToken(id)}
+              onUndoCode={(id) => void undoCode(id)}
+            />
+          )}
+          {route.view === 'projet' && (
+            <div className="narrow">
+              <ProjectBrief />
+            </div>
+          )}
+          {route.view === 'integrations' && (
+            <IntegrationsView
+              code={code}
+              agents={agents}
+              revision={state.revision}
+              onResync={() => void resync()}
+              onExport={() => void perform(exportTokens)}
+              onImport={(f) => void importTokens(f)}
+              spec={spec}
+              specBusy={specBusy}
+              onPrepareSpec={() => void refreshSpec(true)}
+            />
+          )}
+        </main>
+      )}
+      {!external && (
+        <Assistant
+          agents={agents}
+          revision={state.revision}
+          onTokenProposal={setProposal}
+          onCodeProposal={(p) => setCodeProposal({ p })}
+        />
+      )}
       <TokenDiffDialog
         state={state}
         proposal={proposal}
