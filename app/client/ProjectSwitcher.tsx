@@ -1,3 +1,4 @@
+import logo from './logo.png';
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api.js';
 import type { ProjectView } from '../shared/projects.js';
@@ -43,9 +44,11 @@ export default function ProjectSwitcher({
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <span className="brand-symbol">
-          {active.builtin ? 'ds.' : active.name.slice(0, 2)}
-        </span>
+        {active.builtin ? (
+          <img className="brand-logo" src={logo} alt="" />
+        ) : (
+          <span className="brand-symbol">{active.name.slice(0, 2)}</span>
+        )}
         <span>
           <strong>{active.name}</strong>
           <small>

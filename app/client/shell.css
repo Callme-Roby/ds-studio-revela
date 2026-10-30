@@ -1173,3 +1173,12 @@ a.button.studio-primary:hover {
   font-size: 13px;
   font-weight: 500;
 }
+
+/* Logo de DS-Studio : même encombrement que le symbole d'un projet. */
+.brand-logo {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}

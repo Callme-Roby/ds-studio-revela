@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ProjectBrief from './ProjectBrief.js';
+import logo from './logo.png';
 import Assistant, { type ExternalAgentResult } from './Assistant.js';
 import Onboarding from './Onboarding.js';
 import ProjectSwitcher, { type Projects } from './ProjectSwitcher.js';
@@ -364,7 +365,7 @@ export default function App() {
           />
         ) : (
           <div className="wordmark">
-            <span className="brand-symbol">ds.</span>
+            <img className="brand-logo" src={logo} alt="" />
             <div>
               <strong>DS-Studio</strong>
               <span>Revela</span>

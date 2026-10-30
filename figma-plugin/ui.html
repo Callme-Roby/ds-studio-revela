@@ -44,16 +44,9 @@
     border-bottom: 1px solid var(--border);
     background: var(--surface);
   }
-  .mark {
-    display: grid;
-    place-items: center;
+  .logo {
     width: 28px;
     height: 28px;
-    border-radius: 7px;
-    background: var(--primary);
-    color: var(--primary-text);
-    font-weight: 700;
-    letter-spacing: -0.5px;
   }
   h1 {
     font-size: 13px;
@@ -228,7 +221,7 @@
   }
 </style>
 <header>
-  <span class="mark" aria-hidden="true">ds.</span>
+  <img class="logo" alt="" src="data:image/png;base64,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" />
   <div>
     <h1>DS Studio to Figma</h1>
     <p>Variables, composants et écrans validés dans DS-Studio</p>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api.js';
 import type { Projects } from './ProjectSwitcher.js';
+import logo from './logo.png';
 import type { Detection } from '../server/detect.js';
 
 type Agent = { id: string; available: boolean; detail: string };
@@ -160,7 +161,7 @@ export default function Onboarding({
       }}
     >
       <header className="onboarding-head">
-        <span className="brand-symbol">ds.</span>
+        <img className="brand-logo" src={logo} alt="" />
         <div>
           <h2 id="onboarding-title">Bienvenue dans DS-Studio</h2>
           <p className="muted small">
