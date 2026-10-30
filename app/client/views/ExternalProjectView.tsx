@@ -165,7 +165,7 @@ export default function ExternalProjectView({
               checked={plugin}
               onChange={(e) => setPlugin(e.target.checked)}
             />
-            Synchronisé avec Figma par le plugin DS-Studio
+            Synchronisé avec Figma par le plugin DS Studio to Figma
           </label>
           <div className="row">
             <button>Enregistrer</button>

@@ -1,4 +1,4 @@
-# Plugin Figma « Revela · DS-Studio »
+# Plugin Figma « DS Studio to Figma »
 
 Le plugin pousse la **révision validée** de DS-Studio vers un fichier Figma :
 les **variables**, puis les **composants** (avec leurs variantes) et les
@@ -19,7 +19,7 @@ plugin dans Figma, qui lisez le plan et qui cliquez **Appliquer**.
 2. Menu **Plugins → Development → Import plugin from manifest…**
 3. Choisissez `manifest.json` (dossier décompressé ou `figma-plugin/` du dépôt).
 
-Le plugin apparaît dans **Plugins → Development → Revela · DS-Studio**.
+Le plugin apparaît dans **Plugins → Development → DS Studio to Figma**.
 `figma-plugin/code.js` est généré par `npm run figma:build` (déjà fait dans le dépôt).
 
 ## Utiliser

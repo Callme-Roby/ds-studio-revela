@@ -255,7 +255,7 @@ function AddProject({
             checked={plugin}
             onChange={(e) => setPlugin(e.target.checked)}
           />
-          Ce projet est synchronisé avec Figma par le plugin DS-Studio
+          Ce projet est synchronisé avec Figma par le plugin DS Studio to Figma
         </label>
         {error && (
           <p className="error" role="alert">

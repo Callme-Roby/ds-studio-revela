@@ -290,7 +290,7 @@ export default function Onboarding({
                 checked={plugin}
                 onChange={(e) => setPlugin(e.target.checked)}
               />
-              Synchroniser ce projet avec Figma par le plugin DS-Studio
+              Synchroniser ce projet avec Figma par le plugin DS Studio to Figma
             </label>
             <p className="muted small">
               DS-Studio n’exécute rien du projet. Pour GitHub, vos identifiants
