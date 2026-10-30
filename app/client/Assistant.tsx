@@ -13,6 +13,31 @@ export type ExternalAgentResult = {
 type Agent = { id: string; available: boolean; detail: string };
 type Message = { role: 'user' | 'assistant'; text: string };
 
+// Modèle lu dans l'état du CLI (« … · Sonnet 5.5, effort moyen, … ») ; à
+// défaut, le nom de l'agent.
+const modelLabel = (detail: string, name: string) =>
+  detail.split(' · ')[1]?.match(/^[A-Z][a-z]+ \d[\d.]*/)?.[0] ?? name;
+
+// Étoile de Claude, en blanc (couleur du texte).
+function ClaudeMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((a, i) => (
+          <line
+            key={a}
+            x1="12"
+            y1="12"
+            x2="12"
+            y2={i % 2 ? 3.5 : 1.5}
+            transform={`rotate(${a} 12 12)`}
+          />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 // Assistant flottant, repliable. Deux périmètres :
 // - Variables : propositions de tokens (Claude sans outils, ou Codex) ;
 // - Composants : Claude édite une copie de ds/ et produit un diff de code.
@@ -210,17 +235,14 @@ export default function Assistant({
           )}
         </p>
       )}
-      <p className="muted small">
-        {/* Sur un projet, Claude lit et édite une copie : pas « sans outils ». */}
-        {(project
-          ? selected?.detail.replace(/, profil sans outils/, '')
-          : selected?.detail) ?? 'Détection du CLI…'}{' '}
-        {project
-          ? `Claude édite une copie de ${project.name} (lecture et édition de fichiers seulement) : valeurs des tokens et dossiers de composants déclarés. Chaque changement passe par un diff.`
-          : scope === 'variables'
-            ? 'Envoi : tokens, PFE.md, DESIGN_RULES.md, brief privé, 10 messages récents.'
-            : 'Claude édite une copie isolée de ds/ (lecture et édition de fichiers seulement). Envoi : code de ds/ et DESIGN_RULES.md.'}
-      </p>
+      {selected?.available ? (
+        <p className="assistant-model">
+          {name === 'Claude' && <ClaudeMark />}
+          {modelLabel(selected.detail, name)}
+        </p>
+      ) : (
+        <p className="muted small">{selected?.detail ?? 'Détection du CLI…'}</p>
+      )}
       <div
         className="assistant-log"
         ref={log}
