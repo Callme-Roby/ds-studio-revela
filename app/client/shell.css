@@ -1238,3 +1238,7 @@ a.button.studio-primary:hover {
 .project-menu button > span:not(.brand-symbol) {
   flex: 1;
 }
+/* Journal vide : pas de bloc, la zone reste montée pour les lecteurs d'écran. */
+.assistant-log:empty {
+  display: none;
+}

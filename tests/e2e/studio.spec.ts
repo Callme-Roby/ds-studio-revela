@@ -470,7 +470,7 @@ test('assistant flottant repliable, sans compte IA requis', async ({
   const panel = page.getByRole('complementary', { name: 'Assistant IA' });
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Composants (code)' }).click();
-  await expect(panel).toContainText('variante ghost');
+  await expect(panel).not.toContainText('variante ghost');
   await expect(panel).not.toContainText('copie isolée de ds/');
   await panel.getByRole('button', { name: 'Replier l’assistant' }).click();
   await expect(panel).not.toBeVisible();
@@ -586,7 +586,7 @@ test('projets : ajouter un dossier local, vue d’ensemble, revenir à Revela', 
     ).toHaveAttribute('href', 'https://www.figma.com/design/abc/Site');
     // L'assistant suit le projet actif : il édite une copie de ce projet.
     await page.getByRole('button', { name: /Assistant IA/ }).click();
-    await expect(page.getByText(/Vérifie les contrastes/)).toBeVisible();
+    await expect(page.getByLabel('Votre demande')).toBeVisible();
     await expect(page.getByText(/profil sans outils/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Replier l’assistant' }).click();
     await page

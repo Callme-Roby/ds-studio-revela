@@ -249,15 +249,6 @@ export default function Assistant({
         aria-live="polite"
         aria-label="Conversation"
       >
-        {!chat.length && (
-          <p className="muted">
-            {project
-              ? 'Ex. : « Vérifie les contrastes des couleurs et corrige ceux qui posent problème. »'
-              : scope === 'variables'
-                ? 'Ex. : « Propose une alerte plus lisible sur fond clair. »'
-                : 'Ex. : « Ajoute une variante ghost au Button, uniquement avec les tokens. »'}
-          </p>
-        )}
         {chat.map((c, i) => (
           <article className={`chat-message ${c.role}`} key={i}>
             <strong>{c.role === 'user' ? 'Vous' : name}</strong>
