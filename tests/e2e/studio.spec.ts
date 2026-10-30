@@ -926,7 +926,10 @@ test('projet externe : aperçu par son serveur de dev et composant dans la page 
     await page.getByRole('tab', { name: 'Aperçu' }).click();
     await expect(
       page.locator('iframe[title="Aperçu de Button"]'),
-    ).toHaveAttribute('src', `http://127.0.0.1:${port}/ds-studio#Button`);
+    ).toHaveAttribute(
+      'src',
+      `http://127.0.0.1:${port}/ds-studio?composant=Button#Button`,
+    );
     await expect(
       page.frameLocator('iframe[title="Aperçu de Button"]').getByRole('button'),
     ).toHaveText('Bouton du projet');

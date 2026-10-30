@@ -632,3 +632,15 @@ reçoit d’emblée un port libre parmi les projets. Composants : `X.module.css`
 et `X.stories.tsx` pointent sur la section `#X` ; les fichiers de la page
 catalogue affichent la page entière. Arrêt de DS-Studio : les serveurs lancés
 sont arrêtés de façon synchrone (un serveur survivait à l’arrêt).
+
+## Page catalogue : un composant seul, composants à gestionnaires (2026-10-30)
+
+Cas réel CDPP : la page générée plantait (FakeRecaptcha, sans "use client",
+pose un onChange, rendu depuis la page serveur) et l’ancre #Nom ne faisait
+pas défiler (défilement géré par le site). La page catalogue accepte désormais
+`?composant=Nom` et n’affiche que ce composant ; DS-Studio l’utilise (ancre
+conservée pour les pages qui ne filtrent pas). La consigne de génération
+demande ce filtre et un `client.tsx` ("use client") qui réexporte les
+composants à gestionnaires. Page CDPP corrigée à la main sur demande, hors
+historique DS-Studio. CSP : `http://[::1]:*` retiré de frame-src (refusé par
+les navigateurs).

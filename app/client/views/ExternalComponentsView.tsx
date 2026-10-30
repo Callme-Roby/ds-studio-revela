@@ -410,7 +410,9 @@ function ComponentPreview({
   // Fichier de la page catalogue : la page entière ; sinon la section du composant.
   const src = inCatalogPage(file, catalog)
     ? `${url.replace(/\/$/, '')}${catalog}`
-    : `${url.replace(/\/$/, '')}${catalog}#${encodeURIComponent(name)}`;
+    : // ?composant=Nom : la page n'affiche que ce composant ; l'ancre reste
+      // pour les pages catalogue qui ne filtrent pas.
+      `${url.replace(/\/$/, '')}${catalog}?composant=${encodeURIComponent(name)}#${encodeURIComponent(name)}`;
   return (
     <div className="detail-body">
       <p className="muted small">
