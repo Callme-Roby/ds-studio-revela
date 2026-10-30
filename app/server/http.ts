@@ -26,7 +26,7 @@ import { atomicWrite, readPrivate } from './files.js';
 import { ProjectRegistry, resolveInside } from './registry.js';
 import { ExternalTokens } from './external-tokens.js';
 import { SettingsStore, settingsSchema } from './settings.js';
-import { detectProject } from './detect.js';
+import { detectProject, findFavicon } from './detect.js';
 import { ProjectRunner, choosePort, projectCommands } from './project-run.js';
 import { zip } from './zip.js';
 import { pluginTokens } from './figma-external.js';
@@ -391,6 +391,22 @@ export async function createStudioServer(options: {
                 'attachment; filename="ds-studio-figma-plugin.zip"',
             });
             return res.end(zip(files));
+          }
+          const favicon = url.pathname.match(
+            /^\/api\/projects\/([a-z0-9-]{1,40})\/favicon$/,
+          );
+          if (favicon) {
+            const root = (await projects.project(favicon[1])).root;
+            const icon = await findFavicon(root);
+            if (!icon) throw new StudioError('Pas d’icône.', 404);
+            const file = await resolveInside(root, icon.file);
+            res.setHeader('Content-Type', icon.type);
+            // Fichier du projet : un SVG ouvert seul n'exécute rien.
+            res.setHeader(
+              'Content-Security-Policy',
+              "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            );
+            return res.end(await fs.readFile(file));
           }
           const detect = url.pathname.match(
             /^\/api\/projects\/([a-z0-9-]{1,40})\/detect$/,

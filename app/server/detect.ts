@@ -22,6 +22,30 @@ const componentNames =
   /^(components?|ui|widgets|atoms|molecules|organisms|design-system|ds|primitives|elements)$/i;
 const tokenNames = /(token|variable|theme|color|palette|design)/i;
 
+// Icône d'un projet : emplacements usuels (Next.js, Vite, sites statiques).
+const iconTypes: Record<string, string> = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+export async function findFavicon(root: string) {
+  const names = [
+    'icon.svg',
+    'icon.png',
+    'favicon.svg',
+    'favicon.png',
+    'favicon.ico',
+  ];
+  for (const dir of ['src/app', 'app', 'public', 'static', 'src', '.'])
+    for (const name of names) {
+      const rel = path.join(dir, name);
+      const stat = await fs.lstat(path.join(root, rel)).catch(() => null);
+      if (stat?.isFile() && stat.size <= 1_000_000)
+        return { file: rel, type: iconTypes[path.extname(name)] };
+    }
+  return null;
+}
+
 export type Detection = {
   tokens: { file: string; format: 'css' | 'scss' | 'json'; count: number }[];
   components: { dir: string; files: number }[];

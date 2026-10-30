@@ -44,11 +44,7 @@ export default function ProjectSwitcher({
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        {active.builtin ? (
-          <img className="brand-logo" src={logo} alt="" />
-        ) : (
-          <span className="brand-symbol">{active.name.slice(0, 2)}</span>
-        )}
+        <ProjectIcon key={active.id} project={active} />
         <span>
           <strong>{active.name}</strong>
           <small>
@@ -66,6 +62,7 @@ export default function ProjectSwitcher({
               aria-checked={p.id === data.active}
               onClick={() => void select(p.id)}
             >
+              <ProjectIcon project={p} />
               <span>{p.name}</span>
               <small>
                 {p.builtin
@@ -281,5 +278,21 @@ function AddProject({
         </div>
       </form>
     </dialog>
+  );
+}
+
+// Icône d'un projet : son favicon, sinon ses initiales.
+function ProjectIcon({ project }: { project: Projects['projects'][number] }) {
+  const [missing, setMissing] = useState(false);
+  if (project.builtin) return <img className="brand-logo" src={logo} alt="" />;
+  if (missing)
+    return <span className="brand-symbol">{project.name.slice(0, 2)}</span>;
+  return (
+    <img
+      className="brand-logo"
+      src={`/api/projects/${project.id}/favicon`}
+      alt=""
+      onError={() => setMissing(true)}
+    />
   );
 }

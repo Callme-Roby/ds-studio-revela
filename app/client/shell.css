@@ -1182,3 +1182,15 @@ a.button.studio-primary:hover {
   height: 32px;
   object-fit: contain;
 }
+.project-menu .brand-logo,
+.project-menu .brand-symbol {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+.project-menu button > span:not(.brand-symbol) {
+  flex: 1;
+}

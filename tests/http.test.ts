@@ -1235,3 +1235,29 @@ test('mise en route : configuration par Claude (lecture seule, chemins vérifié
   }
   assert.equal(setup.run.dev.running, false);
 });
+
+test('favicon d’un projet : icône trouvée, SVG sans exécution, 404 sans icône', async (t) => {
+  const { origin, post } = await fixture(t);
+  const folder = await mkdtemp(path.join(tmpdir(), 'ds-http-icon-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  await post('projects/add', {
+    name: 'Site',
+    root: folder,
+    source: { type: 'local', url: '' },
+    figma: { plugin: false, fileUrl: '' },
+  });
+  const url = origin + '/api/projects/site/favicon';
+  assert.equal((await fetch(url)).status, 404);
+  await mkdir(path.join(folder, 'public'));
+  await writeFile(path.join(folder, 'public', 'favicon.ico'), 'ico');
+  let r = await fetch(url);
+  assert.equal(r.headers.get('content-type'), 'image/x-icon');
+  // L'icône du dossier de l'app passe avant celle de public/.
+  await mkdir(path.join(folder, 'src', 'app'), { recursive: true });
+  await writeFile(path.join(folder, 'src', 'app', 'icon.svg'), '<svg/>');
+  r = await fetch(url);
+  assert.equal(r.headers.get('content-type'), 'image/svg+xml');
+  assert.match(r.headers.get('content-security-policy')!, /sandbox/);
+  assert.equal(await r.text(), '<svg/>');
+});
