@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { catalog, DSProvider } from '../DesignSystem.js';
 import { request } from '../api.js';
+import TokenGroup, { useOpenGroups } from './TokenGroup.js';
 import { useTokenDraft } from '../useTokenDraft.js';
 import {
   contrast,
@@ -92,6 +93,9 @@ export default function VariablesView({
   const draftContrast = /^#[0-9a-fA-F]{6}$/.test(draft)
     ? brandPair(key)
     : undefined;
+  const groups = useOpenGroups(
+    families.find(([prefix]) => key.startsWith(prefix))?.[0],
+  );
   const brandContrast = contrast(
     state.tokens['color.brand'].$value,
     state.tokens['color.onBrand'].$value,
@@ -116,42 +120,45 @@ export default function VariablesView({
           const keys = matching.filter((k) => k.startsWith(prefix));
           if (!keys.length) return null;
           return (
-            <section key={prefix} aria-label={label}>
-              <h3 className="list-title">{label}</h3>
-              <ul className={prefix === 'color.' ? 'token-grid' : 'token-rows'}>
-                {keys.map((k) => (
-                  <li key={k}>
-                    <button
-                      className="token-card"
-                      aria-pressed={key === k}
-                      aria-label={`Sélectionner ${k}`}
-                      onClick={() => {
-                        setKey(k);
-                        setTab('apercu');
-                      }}
-                    >
-                      {prefix === 'color.' ? (
-                        <span
-                          className="token-chip"
-                          style={{ background: String(state.tokens[k].$value) }}
-                        />
-                      ) : (
-                        <span className="token-measure">
-                          {prefix === 'font.' && k !== 'font.family'
-                            ? 'Aa'
-                            : ''}
-                        </span>
-                      )}
-                      <span className="token-name">{k.split('.')[1]}</span>
-                      <span className="token-value">
-                        {String(state.tokens[k].$value)}
-                        {state.tokens[k].$type === 'dimension' ? 'px' : ''}
+            <TokenGroup
+              key={prefix}
+              label={label}
+              count={keys.length}
+              open={!!search.trim() || groups.open.has(prefix)}
+              onToggle={() => groups.toggle(prefix)}
+            >
+              {keys.map((k) => (
+                <li key={k}>
+                  <button
+                    className="token-card"
+                    aria-pressed={key === k}
+                    aria-label={`Sélectionner ${k}`}
+                    onClick={() => {
+                      setKey(k);
+                      setTab('apercu');
+                    }}
+                  >
+                    {prefix === 'color.' ? (
+                      <span
+                        className="token-chip"
+                        style={{ background: String(state.tokens[k].$value) }}
+                      />
+                    ) : (
+                      <span className="token-measure">
+                        {prefix === 'font.' && k !== 'font.family' ? 'Aa' : ''}
                       </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
+                    )}
+                    <span className="token-name" title={k}>
+                      {k.split('.')[1]}
+                    </span>
+                    <span className="token-value">
+                      {String(state.tokens[k].$value)}
+                      {state.tokens[k].$type === 'dimension' ? 'px' : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </TokenGroup>
           );
         })}
       </div>

@@ -178,7 +178,7 @@
   background: var(--ui-surface);
 }
 .catalog-list section + section {
-  margin-top: 14px;
+  margin-top: 2px;
 }
 .list-title {
   margin: 0 0 8px;
@@ -188,7 +188,6 @@
   text-transform: uppercase;
   color: var(--ui-text-subtle);
 }
-.token-grid,
 .token-rows,
 .component-list {
   list-style: none;
@@ -197,16 +196,13 @@
   display: grid;
   gap: 4px;
 }
-.token-grid {
-  grid-template-columns: 1fr 1fr;
-}
 .token-card {
   width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.9fr);
   align-items: center;
   column-gap: 8px;
-  padding: 6px 8px;
+  padding: 4px 8px 4px 22px;
   text-align: left;
   background: transparent;
   border-color: transparent;
@@ -218,15 +214,13 @@
   border-color: var(--ui-border-control);
 }
 .token-chip {
-  grid-row: span 2;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
   box-shadow: 0 0 0 1px var(--ui-border-control);
 }
 .token-measure {
-  grid-row: span 2;
-  width: 22px;
+  width: 16px;
   font-size: 12px;
   color: var(--ui-text-subtle);
   text-align: center;
@@ -235,11 +229,61 @@
   font-size: 12.5px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .token-value {
+  overflow: hidden;
   font-family: var(--ui-font-mono);
   font-size: 11px;
   color: var(--ui-text-subtle);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Groupes dépliants, comme le panneau des variables de Figma. */
+.token-group {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ui-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+}
+.token-group:hover {
+  background: var(--ui-surface-hover);
+}
+.token-group-chevron {
+  flex: none;
+  width: 10px;
+  color: var(--ui-text-subtle);
+  font-size: 10px;
+  transition: transform 120ms ease;
+}
+.token-group[aria-expanded='true'] .token-group-chevron {
+  transform: rotate(90deg);
+}
+.token-group-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.token-group-count {
+  flex: none;
+  color: var(--ui-text-subtle);
+  font-size: 11px;
+  font-weight: 500;
+}
+@media (prefers-reduced-motion: reduce) {
+  .token-group-chevron {
+    transition: none;
+  }
 }
 .component-list button {
   width: 100%;

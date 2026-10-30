@@ -8,6 +8,7 @@ import type {
 import type { CodeProposal } from '../../server/components.js';
 import type { CodeEntry } from './HistoryView.js';
 import CodeDiffDialog from '../CodeDiffDialog.js';
+import TokenGroup, { useOpenGroups } from './TokenGroup.js';
 
 type Source = {
   file: string;
@@ -99,6 +100,9 @@ export default function ExternalVariablesView({
         order.indexOf(a.split(' · ')[1]) - order.indexOf(b.split(' · ')[1]),
     );
   }, [data, search]);
+  const openGroups = useOpenGroups(
+    token && `${token.file} · ${family[token.type]}`,
+  );
   async function run(work: () => Promise<void>) {
     setBusy(true);
     setProblem('');
@@ -181,37 +185,42 @@ export default function ExternalVariablesView({
               </p>
             ))}
           {groups.map(([name, tokens]) => (
-            <section key={name} aria-label={name}>
-              <h3 className="list-title">{name}</h3>
-              <ul className="token-rows">
-                {tokens.map((t) => (
-                  <li key={t.id}>
-                    <button
-                      className="token-card"
-                      aria-pressed={token?.id === t.id}
-                      aria-label={`Sélectionner ${t.key}`}
-                      onClick={() => {
-                        setSelected(t.id);
-                        setTab('apercu');
-                      }}
-                    >
-                      {t.type === 'color' ? (
-                        <span
-                          className="token-chip"
-                          style={{ background: t.value }}
-                        />
-                      ) : (
-                        <span className="token-measure">
-                          {t.type === 'dimension' ? '↔' : 'Aa'}
-                        </span>
-                      )}
-                      <span className="token-name">{t.key}</span>
-                      <span className="token-value">{t.value}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <TokenGroup
+              key={name}
+              label={name}
+              count={tokens.length}
+              open={!!search.trim() || openGroups.open.has(name)}
+              onToggle={() => openGroups.toggle(name)}
+            >
+              {tokens.map((t) => (
+                <li key={t.id}>
+                  <button
+                    className="token-card"
+                    aria-pressed={token?.id === t.id}
+                    aria-label={`Sélectionner ${t.key}`}
+                    onClick={() => {
+                      setSelected(t.id);
+                      setTab('apercu');
+                    }}
+                  >
+                    {t.type === 'color' ? (
+                      <span
+                        className="token-chip"
+                        style={{ background: t.value }}
+                      />
+                    ) : (
+                      <span className="token-measure">
+                        {t.type === 'dimension' ? '↔' : 'Aa'}
+                      </span>
+                    )}
+                    <span className="token-name" title={t.key}>
+                      {t.key}
+                    </span>
+                    <span className="token-value">{t.value}</span>
+                  </button>
+                </li>
+              ))}
+            </TokenGroup>
           ))}
         </div>
         {token && (

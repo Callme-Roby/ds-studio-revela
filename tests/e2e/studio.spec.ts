@@ -946,3 +946,23 @@ test('projet externe : aperçu par son serveur de dev et composant dans la page 
     await rm(folder, { recursive: true, force: true });
   }
 });
+
+test('variables : groupes dépliants, groupe sélectionné ouvert, recherche ouvre tout', async ({
+  page,
+}) => {
+  await page.goto('/#/variables');
+  const colors = page.getByRole('button', { name: /^Couleurs/ });
+  await expect(colors).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    page.getByRole('button', { name: 'Sélectionner color.brand', exact: true }),
+  ).toBeVisible();
+  await colors.click();
+  await expect(colors).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    page.getByRole('button', { name: 'Sélectionner color.brand', exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel('Rechercher un token').fill('brand');
+  await expect(
+    page.getByRole('button', { name: 'Sélectionner color.brand', exact: true }),
+  ).toBeVisible();
+});
