@@ -487,12 +487,20 @@
 }
 
 /* Historique et intégrations. */
-.history-view,
-.cards {
+.history-view {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: 16px;
   align-items: start;
+}
+/* Cartes de hauteurs inégales : empilées en colonnes, sans trou entre elles. */
+.cards {
+  columns: 380px;
+  column-gap: 16px;
+}
+.cards > * {
+  margin: 0 0 16px;
+  break-inside: avoid;
 }
 .history,
 .card {
@@ -1167,7 +1175,7 @@ a.button.studio-primary:hover {
 
 /* Mise en route d'un projet externe : étapes, état, sortie des commandes. */
 .setup-card {
-  grid-column: 1 / -1;
+  column-span: all;
 }
 .setup-steps {
   margin: 12px 0;
